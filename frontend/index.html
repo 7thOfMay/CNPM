@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Online Tutoring Platform</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <nav class="navbar">
+                <div class="logo">
+                    <h1>📚 TutorPro</h1>
+                </div>
+                <div class="nav-links">
+                    <a href="#home" class="active">Home</a>
+                    <a href="#courses">Courses</a>
+                    <a href="#tutor">AI Tutor</a>
+                    <a href="#profile">Profile</a>
+                </div>
+            </nav>
+        </header>
+
+        <main>
+            <!-- Hero Section -->
+            <section id="home" class="hero">
+                <h2>Welcome to Your Learning Journey</h2>
+                <p>Connect with AI-powered tutoring and expert instructors</p>
+                <div class="cta-buttons">
+                    <button class="btn btn-primary" onclick="showSection('register')">Get Started</button>
+                    <button class="btn btn-secondary" onclick="showSection('courses')">Browse Courses</button>
+                </div>
+            </section>
+
+            <!-- User Registration -->
+            <section id="register" class="section hidden">
+                <h2>Create Your Account</h2>
+                <form id="registerForm" class="form">
+                    <div class="form-group">
+                        <label for="username">Username</label>
+                        <input type="text" id="username" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="role">Role</label>
+                        <select id="role">
+                            <option value="student">Student</option>
+                            <option value="tutor">Tutor</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Register</button>
+                </form>
+                <div id="registerMessage" class="message"></div>
+            </section>
+
+            <!-- Courses Section -->
+            <section id="courses" class="section">
+                <h2>Available Courses</h2>
+                <div class="filters">
+                    <select id="subjectFilter" onchange="filterCourses()">
+                        <option value="">All Subjects</option>
+                        <option value="math">Mathematics</option>
+                        <option value="science">Science</option>
+                        <option value="programming">Programming</option>
+                    </select>
+                    <select id="levelFilter" onchange="filterCourses()">
+                        <option value="">All Levels</option>
+                        <option value="beginner">Beginner</option>
+                        <option value="intermediate">Intermediate</option>
+                        <option value="advanced">Advanced</option>
+                    </select>
+                </div>
+                <div id="coursesList" class="courses-grid"></div>
+            </section>
+
+            <!-- AI Tutor Section -->
+            <section id="tutor" class="section">
+                <h2>AI Tutor Assistant</h2>
+                <div class="chat-container">
+                    <div id="chatHistory" class="chat-history"></div>
+                    <form id="tutorForm" class="chat-form">
+                        <select id="subject">
+                            <option value="default">General</option>
+                            <option value="math">Mathematics</option>
+                            <option value="science">Science</option>
+                            <option value="programming">Programming</option>
+                        </select>
+                        <input type="text" id="question" placeholder="Ask a question..." required>
+                        <button type="submit" class="btn btn-primary">Ask</button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- Status Section -->
+            <section id="status" class="section">
+                <h3>System Status</h3>
+                <div id="healthStatus" class="status-grid"></div>
+            </section>
+        </main>
+
+        <footer>
+            <p>&copy; 2025 TutorPro. All rights reserved.</p>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
