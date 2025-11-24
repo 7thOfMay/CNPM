@@ -3,6 +3,7 @@ const cors = require('cors');
 const axios = require('axios');
 const bcrypt = require('bcryptjs');
 const { authMiddleware, optionalAuth, requireRole, generateToken } = require('./middleware/auth');
+const chat = require('./chat');
 require('dotenv').config();
 
 const app = express();
@@ -27,10 +28,10 @@ const users = [
     }
 ];
 const courses = [
-    { id: 1, title: 'Introduction to Mathematics', subject: 'math', level: 'beginner', enrolled: 0 },
-    { id: 2, title: 'Advanced Physics', subject: 'science', level: 'advanced', enrolled: 0 },
-    { id: 3, title: 'Web Development Basics', subject: 'programming', level: 'beginner', enrolled: 0 },
-    { id: 4, title: 'Data Structures', subject: 'programming', level: 'intermediate', enrolled: 0 }
+    { id: 1, title: 'Introduction to Mathematics', subject: 'math', level: 'beginner', enrolled: 0, tutorId: null, enrolledStudents: [] },
+    { id: 2, title: 'Advanced Physics', subject: 'science', level: 'advanced', enrolled: 0, tutorId: null, enrolledStudents: [] },
+    { id: 3, title: 'Web Development Basics', subject: 'programming', level: 'beginner', enrolled: 0, tutorId: null, enrolledStudents: [] },
+    { id: 4, title: 'Data Structures', subject: 'programming', level: 'intermediate', enrolled: 0, tutorId: null, enrolledStudents: [] }
 ];
 
 // Health check
@@ -200,6 +201,131 @@ app.get('/api/tutor/courses', authMiddleware, requireRole('tutor', 'admin'), (re
     res.json({ courses: tutorCourses });
 });
 
+// Helper functions for chat permissions
+function canStudentChatWithTutor(studentId, tutorId) {
+    return courses.some(course => 
+        course.tutorId === tutorId && 
+        course.enrolledStudents && 
+        course.enrolledStudents.includes(studentId)
+    );
+}
+
+function canTutorChatWithStudent(tutorId, studentId) {
+    return courses.some(course => 
+        course.tutorId === tutorId && 
+        course.enrolledStudents && 
+        course.enrolledStudents.includes(studentId)
+    );
+}
+
+function getAllowedChatUsers(currentUserId, currentUserRole) {
+    if (currentUserRole === 'admin') {
+        return users.filter(u => u.id !== currentUserId);
+    }
+    
+    if (currentUserRole === 'student') {
+        const enrolledCourses = courses.filter(c => 
+            c.enrolledStudents && c.enrolledStudents.includes(currentUserId)
+        );
+        const tutorIds = [...new Set(enrolledCourses.map(c => c.tutorId).filter(id => id !== null))];
+        
+        return users.filter(u => 
+            u.id !== currentUserId && 
+            (tutorIds.includes(u.id) || u.role === 'admin')
+        );
+    }
+    
+    if (currentUserRole === 'tutor') {
+        const tutorCourses = courses.filter(c => c.tutorId === currentUserId);
+        const studentIds = [...new Set(tutorCourses.flatMap(c => c.enrolledStudents || []))];
+        
+        return users.filter(u => 
+            u.id !== currentUserId && 
+            (studentIds.includes(u.id) || u.role === 'admin')
+        );
+    }
+    
+    return [];
+}
+
+// Chat routes
+app.get('/api/chat/users', authMiddleware, (req, res) => {
+    const allowedUsers = getAllowedChatUsers(req.user.id, req.user.role);
+    const usersWithoutPasswords = allowedUsers.map(({ password, ...user }) => user);
+    res.json({ users: usersWithoutPasswords });
+});
+
+app.post('/api/chat/room', authMiddleware, (req, res) => {
+    const { userId } = req.body;
+    
+    if (!userId) {
+        return res.status(400).json({ error: 'userId is required' });
+    }
+    
+    const otherUser = users.find(u => u.id === userId);
+    if (!otherUser) {
+        return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const allowedUsers = getAllowedChatUsers(req.user.id, req.user.role);
+    const canChat = allowedUsers.some(u => u.id === userId);
+    
+    if (!canChat) {
+        return res.status(403).json({ 
+            error: 'You are not allowed to chat with this user',
+            message: req.user.role === 'student' 
+                ? 'You can only chat with tutors of courses you are enrolled in'
+                : 'You can only chat with students enrolled in your courses'
+        });
+    }
+    
+    const room = chat.getOrCreateRoom(req.user.id, userId);
+    res.json({ room, otherUser: { id: otherUser.id, username: otherUser.username, role: otherUser.role } });
+});
+
+app.get('/api/chat/rooms', authMiddleware, (req, res) => {
+    const rooms = chat.getUserRooms(req.user.id);
+    
+    const enrichedRooms = rooms.map(room => {
+        const otherUserId = room.user1Id === req.user.id ? room.user2Id : room.user1Id;
+        const otherUser = users.find(u => u.id === otherUserId);
+        const roomMessages = chat.getRoomMessages(room.id, 1);
+        
+        return {
+            ...room,
+            otherUser: otherUser ? { id: otherUser.id, username: otherUser.username, role: otherUser.role } : null,
+            lastMessage: roomMessages.length > 0 ? roomMessages[0] : null
+        };
+    });
+    
+    res.json({ rooms: enrichedRooms });
+});
+
+app.post('/api/chat/message', authMiddleware, (req, res) => {
+    const { roomId, content } = req.body;
+    
+    if (!roomId || !content) {
+        return res.status(400).json({ error: 'roomId and content are required' });
+    }
+    
+    const message = chat.sendMessage(roomId, req.user.id, content);
+    res.json({ message });
+});
+
+app.get('/api/chat/messages/:roomId', authMiddleware, (req, res) => {
+    const roomId = parseInt(req.params.roomId);
+    const messages = chat.getRoomMessages(roomId);
+    
+    chat.markMessagesAsRead(roomId, req.user.id);
+    
+    res.json({ messages });
+});
+
+app.get('/api/chat/unread', authMiddleware, (req, res) => {
+    const count = chat.getUnreadCount(req.user.id);
+    res.json({ unreadCount: count });
+});
+
 app.get('/api/users/:id', authMiddleware, (req, res) => {
     const user = users.find(u => u.id === parseInt(req.params.id));
     if (!user) {
@@ -245,7 +371,16 @@ app.post('/api/courses/:id/enroll', authMiddleware, requireRole('student'), (req
         return res.status(404).json({ error: 'User not found' });
     }
     
+    // Check if already enrolled
+    if (course.enrolledStudents && course.enrolledStudents.includes(req.user.id)) {
+        return res.status(400).json({ error: 'Already enrolled in this course' });
+    }
+    
     course.enrolled += 1;
+    if (!course.enrolledStudents) {
+        course.enrolledStudents = [];
+    }
+    course.enrolledStudents.push(req.user.id);
     
     const { password: _, ...userWithoutPassword } = user;
     

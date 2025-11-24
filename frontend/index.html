@@ -18,6 +18,7 @@
                     <a href="#student-dashboard" id="studentDashLink" class="hidden">My Dashboard</a>
                     <a href="#tutor-dashboard" id="tutorDashLink" class="hidden">Tutor Panel</a>
                     <a href="#admin" id="adminDashLink" class="hidden">Admin Panel</a>
+                    <a href="#chat" id="chatLink" class="hidden">Messages <span id="unreadBadge" class="badge hidden">0</span></a>
                     <button id="logoutBtn" class="btn btn-small hidden">Logout</button>
                 </div>
             </nav>
@@ -206,6 +207,42 @@
                 <div class="dashboard-section">
                     <h3>User Management</h3>
                     <div id="usersList"></div>
+                </div>
+            </section>
+
+            <!-- Chat Section -->
+            <section id="chat" class="section hidden">
+                <h2>Messages</h2>
+                <div class="chat-container-main">
+                    <div class="chat-sidebar">
+                        <h3>Conversations</h3>
+                        <div class="chat-user-search">
+                            <input type="text" id="userSearch" placeholder="Search users...">
+                            <button id="newChatBtn" class="btn btn-primary">New Chat</button>
+                        </div>
+                        <div id="chatRoomsList" class="chat-rooms-list"></div>
+                    </div>
+                    <div class="chat-main">
+                        <div id="chatHeader" class="chat-header">
+                            <p>Select a conversation to start messaging</p>
+                        </div>
+                        <div id="chatMessagesArea" class="chat-messages-area"></div>
+                        <div id="chatInputArea" class="chat-input-area hidden">
+                            <form id="chatMessageForm">
+                                <input type="text" id="chatMessageInput" placeholder="Type a message..." required>
+                                <button type="submit" class="btn btn-primary">Send</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- New Chat Modal -->
+                <div id="newChatModal" class="modal hidden">
+                    <div class="modal-content">
+                        <span class="close-modal">&times;</span>
+                        <h3>Start New Conversation</h3>
+                        <div id="availableUsersList" class="users-list-modal"></div>
+                    </div>
                 </div>
             </section>
 

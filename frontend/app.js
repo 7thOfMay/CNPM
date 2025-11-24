@@ -5,6 +5,8 @@ const AI_SERVICE_URL = 'http://localhost:5000/api';
 let currentUser = null;
 let authToken = null;
 let allCourses = [];
+let currentChatRoom = null;
+let chatRefreshInterval = null;
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
@@ -66,6 +68,22 @@ function setupEventListeners() {
     if (quickTutorForm) {
         quickTutorForm.addEventListener('submit', handleQuickTutorQuestion);
     }
+    
+    // Chat event listeners
+    const newChatBtn = document.getElementById('newChatBtn');
+    if (newChatBtn) {
+        newChatBtn.addEventListener('click', openNewChatModal);
+    }
+    
+    const closeModal = document.querySelector('.close-modal');
+    if (closeModal) {
+        closeModal.addEventListener('click', closeNewChatModal);
+    }
+    
+    const chatMessageForm = document.getElementById('chatMessageForm');
+    if (chatMessageForm) {
+        chatMessageForm.addEventListener('submit', sendChatMessage);
+    }
 }
 
 // Authentication
@@ -98,9 +116,11 @@ function updateAuthUI() {
     const studentDashLink = document.getElementById('studentDashLink');
     const tutorDashLink = document.getElementById('tutorDashLink');
     const adminDashLink = document.getElementById('adminDashLink');
+    const chatLink = document.getElementById('chatLink');
     
     if (currentUser) {
         logoutBtn.classList.remove('hidden');
+        chatLink.classList.remove('hidden');
         
         // Show role-specific dashboard link only
         if (currentUser.role === 'student') {
@@ -116,11 +136,23 @@ function updateAuthUI() {
             tutorDashLink.classList.add('hidden');
             adminDashLink.classList.remove('hidden');
         }
+        
+        // Start checking for unread messages
+        checkUnreadMessages();
+        if (!chatRefreshInterval) {
+            chatRefreshInterval = setInterval(checkUnreadMessages, 10000);
+        }
     } else {
         logoutBtn.classList.add('hidden');
         studentDashLink.classList.add('hidden');
         tutorDashLink.classList.add('hidden');
         adminDashLink.classList.add('hidden');
+        chatLink.classList.add('hidden');
+        
+        if (chatRefreshInterval) {
+            clearInterval(chatRefreshInterval);
+            chatRefreshInterval = null;
+        }
     }
 }
 
@@ -476,6 +508,8 @@ function navigateToSection(sectionId) {
         loadTutorDashboard();
     } else if (sectionId === 'admin' && currentUser && currentUser.role === 'admin') {
         loadAdminDashboard();
+    } else if (sectionId === 'chat' && currentUser) {
+        loadChatSection();
     }
 
     // Update active nav link
@@ -571,14 +605,19 @@ async function enrollCourse(courseId) {
         const data = await response.json();
         
         if (response.ok) {
-            alert('Successfully enrolled!');
+            alert('Successfully enrolled! You can now chat with the course tutor.');
             loadCourses();
+            if (window.location.hash === '#student-dashboard') {
+                loadStudentDashboard();
+            }
         } else {
             if (response.status === 401) {
                 alert('Session expired. Please login again.');
                 handleLogout();
             } else if (response.status === 403) {
                 alert('Only students can enroll in courses!');
+            } else if (response.status === 400) {
+                alert(data.error || 'Enrollment failed');
             } else {
                 alert(data.error || 'Enrollment failed');
             }
@@ -735,6 +774,193 @@ function showMessage(elementId, message, type) {
     messageEl.textContent = message;
     messageEl.className = `message ${type}`;
     messageEl.style.display = 'block';
+}
+
+// Chat Functions
+async function loadChatSection() {
+    await loadChatRooms();
+}
+
+async function loadChatRooms() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/chat/rooms`, {
+            headers: getAuthHeaders()
+        });
+        const data = await response.json();
+        
+        const roomsList = document.getElementById('chatRoomsList');
+        if (data.rooms && data.rooms.length > 0) {
+            roomsList.innerHTML = data.rooms.map(room => `
+                <div class="chat-room-item" onclick="openChatRoom(${room.id}, ${room.otherUser.id}, '${room.otherUser.username}', '${room.otherUser.role}')">
+                    <div class="chat-room-avatar">${room.otherUser.username[0].toUpperCase()}</div>
+                    <div class="chat-room-info">
+                        <div class="chat-room-name">${room.otherUser.username}</div>
+                        <div class="chat-room-role">${room.otherUser.role}</div>
+                        ${room.lastMessage ? `<div class="chat-room-last">${room.lastMessage.content.substring(0, 30)}...</div>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            roomsList.innerHTML = '<p style="padding: 1rem; text-align: center;">No conversations yet</p>';
+        }
+    } catch (error) {
+        console.error('Failed to load chat rooms:', error);
+    }
+}
+
+async function openNewChatModal() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/chat/users`, {
+            headers: getAuthHeaders()
+        });
+        const data = await response.json();
+        
+        const modal = document.getElementById('newChatModal');
+        const usersList = document.getElementById('availableUsersList');
+        
+        if (data.users && data.users.length > 0) {
+            usersList.innerHTML = data.users.map(user => `
+                <div class="user-item-modal" onclick="startChatWith(${user.id}, '${user.username}', '${user.role}')">
+                    <div class="user-avatar">${user.username[0].toUpperCase()}</div>
+                    <div class="user-info">
+                        <div class="user-name">${user.username}</div>
+                        <div class="user-role-badge ${user.role}">${user.role}</div>
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            if (currentUser.role === 'student') {
+                usersList.innerHTML = '<p style="text-align: center; padding: 2rem; color: #666;">No tutors available. Please enroll in a course first to chat with tutors.</p>';
+            } else if (currentUser.role === 'tutor') {
+                usersList.innerHTML = '<p style="text-align: center; padding: 2rem; color: #666;">No students yet. Students will appear here when they enroll in your courses.</p>';
+            } else {
+                usersList.innerHTML = '<p style="text-align: center; padding: 2rem; color: #666;">No users available</p>';
+            }
+        }
+        
+        modal.classList.remove('hidden');
+    } catch (error) {
+        console.error('Failed to load users:', error);
+    }
+}
+
+function closeNewChatModal() {
+    document.getElementById('newChatModal').classList.add('hidden');
+}
+
+async function startChatWith(userId, username, role) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/chat/room`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ userId })
+        });
+        const data = await response.json();
+        
+        if (response.ok) {
+            closeNewChatModal();
+            await loadChatRooms();
+            openChatRoom(data.room.id, userId, username, role);
+        } else {
+            console.error('Failed to create chat:', data);
+        }
+    } catch (error) {
+        console.error('Failed to create chat room:', error);
+    }
+}
+
+async function openChatRoom(roomId, userId, username, role) {
+    currentChatRoom = roomId;
+    
+    const chatHeader = document.getElementById('chatHeader');
+    chatHeader.innerHTML = `
+        <div class="chat-header-user">
+            <div class="chat-avatar">${username[0].toUpperCase()}</div>
+            <div>
+                <div class="chat-username">${username}</div>
+                <div class="chat-user-role">${role}</div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('chatInputArea').classList.remove('hidden');
+    
+    await loadChatMessages(roomId);
+}
+
+async function loadChatMessages(roomId) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/chat/messages/${roomId}`, {
+            headers: getAuthHeaders()
+        });
+        const data = await response.json();
+        
+        const messagesArea = document.getElementById('chatMessagesArea');
+        if (data.messages && data.messages.length > 0) {
+            messagesArea.innerHTML = data.messages.map(msg => {
+                const isOwn = msg.senderId === currentUser.id;
+                return `
+                    <div class="chat-message-item ${isOwn ? 'own' : 'other'}">
+                        <div class="message-content">${msg.content}</div>
+                        <div class="message-time">${new Date(msg.createdAt).toLocaleTimeString()}</div>
+                    </div>
+                `;
+            }).join('');
+        } else {
+            messagesArea.innerHTML = '<p style="text-align: center; padding: 2rem;">No messages yet. Start the conversation!</p>';
+        }
+        
+        messagesArea.scrollTop = messagesArea.scrollHeight;
+        checkUnreadMessages();
+    } catch (error) {
+        console.error('Failed to load messages:', error);
+    }
+}
+
+async function sendChatMessage(e) {
+    e.preventDefault();
+    
+    if (!currentChatRoom) return;
+    
+    const input = document.getElementById('chatMessageInput');
+    const content = input.value.trim();
+    
+    if (!content) return;
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/chat/message`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ roomId: currentChatRoom, content })
+        });
+        
+        if (response.ok) {
+            input.value = '';
+            await loadChatMessages(currentChatRoom);
+            await loadChatRooms();
+        }
+    } catch (error) {
+        console.error('Failed to send message:', error);
+    }
+}
+
+async function checkUnreadMessages() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/chat/unread`, {
+            headers: getAuthHeaders()
+        });
+        const data = await response.json();
+        
+        const badge = document.getElementById('unreadBadge');
+        if (data.unreadCount > 0) {
+            badge.textContent = data.unreadCount;
+            badge.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+        }
+    } catch (error) {
+        console.error('Failed to check unread messages:', error);
+    }
 }
 
 // Refresh health status periodically
