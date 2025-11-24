@@ -18,6 +18,8 @@
                     <a href="#student-dashboard" id="studentDashLink" class="hidden">My Dashboard</a>
                     <a href="#tutor-dashboard" id="tutorDashLink" class="hidden">Tutor Panel</a>
                     <a href="#admin" id="adminDashLink" class="hidden">Admin Panel</a>
+                    <a href="#library" id="libraryLink" class="hidden">Library</a>
+                    <a href="#forum" id="forumLink" class="hidden">Forum</a>
                     <a href="#notifications" id="notificationsLink" class="hidden">Notifications <span id="notificationBadge" class="badge hidden">0</span></a>
                     <a href="#chat" id="chatLink" class="hidden">Messages <span id="unreadBadge" class="badge hidden">0</span></a>
                     <button id="logoutBtn" class="btn btn-small hidden">Logout</button>
@@ -317,6 +319,26 @@
             <!-- Admin Dashboard -->
             <section id="admin" class="section hidden">
                 <h2>Admin Dashboard</h2>
+                
+                <div class="dashboard-section">
+                    <h3>Export Reports</h3>
+                    <div class="export-controls">
+                        <select id="exportType" class="form-control">
+                            <option value="analytics">Analytics Summary</option>
+                            <option value="users">Users List</option>
+                            <option value="courses">Courses List</option>
+                            <option value="sessions">Sessions List</option>
+                            <option value="ratings">Ratings List</option>
+                        </select>
+                        <select id="exportFormat" class="form-control">
+                            <option value="json">JSON</option>
+                            <option value="csv">CSV</option>
+                        </select>
+                        <button class="btn btn-primary" onclick="exportReport()">Export Report</button>
+                        <button class="btn btn-secondary" onclick="syncDatacore()">Sync Datacore</button>
+                    </div>
+                </div>
+                
                 <div id="adminStats" class="stats-grid"></div>
                 <div class="analytics-grid">
                     <div class="chart-container">
@@ -409,6 +431,56 @@
                         <h3>Start New Conversation</h3>
                         <div id="availableUsersList" class="users-list-modal"></div>
                     </div>
+                </div>
+            </section>
+
+            <!-- HCMUT Library Section -->
+            <section id="library" class="section hidden">
+                <h2>HCMUT Library</h2>
+                <div class="dashboard-section">
+                    <div class="library-search">
+                        <input type="text" id="librarySearchInput" placeholder="Search books..." class="form-control">
+                        <select id="libraryCategoryFilter" class="form-control">
+                            <option value="">All Categories</option>
+                        </select>
+                        <button class="btn btn-primary" onclick="searchLibrary()">Search</button>
+                    </div>
+                    <div id="libraryResults" class="library-results"></div>
+                </div>
+            </section>
+
+            <!-- Community Forum Section -->
+            <section id="forum" class="section hidden">
+                <h2>Community Forum</h2>
+                <div class="dashboard-section">
+                    <button class="btn btn-primary" onclick="showCreatePostForm()">Create New Post</button>
+                    
+                    <div id="createPostForm" class="forum-create-form hidden" style="margin-top: 1rem;">
+                        <h3>Create New Post</h3>
+                        <form id="forumPostForm">
+                            <div class="form-group">
+                                <label for="postTitle">Title</label>
+                                <input type="text" id="postTitle" required class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="postCategory">Category</label>
+                                <select id="postCategory" class="form-control">
+                                    <option value="General">General</option>
+                                    <option value="Study Tips">Study Tips</option>
+                                    <option value="Course Help">Course Help</option>
+                                    <option value="Tutoring">Tutoring</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="postContent">Content</label>
+                                <textarea id="postContent" required rows="5" class="form-control"></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Post</button>
+                            <button type="button" class="btn btn-secondary" onclick="hideCreatePostForm()">Cancel</button>
+                        </form>
+                    </div>
+                    
+                    <div id="forumPosts" class="forum-posts" style="margin-top: 1.5rem;"></div>
                 </div>
             </section>
 

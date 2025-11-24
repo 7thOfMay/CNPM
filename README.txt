@@ -14,9 +14,11 @@ The application consists of three main services:
 
 # 2. Backend (Node.js/Express)
 - Port: 3000
-- RESTful API
-- User management
-- Course management
+- Architecture: MVC (Model-View-Controller)
+- RESTful API with modular routing
+- User management (Auth, Roles, SSO Mock)
+- Course & Session management
+- Community Forum & Resource Library
 - Integration with AI service
 
 # 3. Frontend (HTML/CSS/JavaScript)
@@ -85,6 +87,18 @@ npx serve -p 8080
 - Filter by subject and level
 - Course enrollment
 - Track enrolled students
+- Resource management (PDFs, Videos, Links)
+
+# Community & Library
+- Discussion Forum (Posts, Comments)
+- Digital Library (Search, Categories)
+- Resource sharing
+
+# Admin & Analytics
+- Dashboard statistics
+- Data export (JSON/CSV)
+- User & Content management
+- Mock integration with HCMUT Datacore
 
 # AI Tutoring
 - Real-time question answering
@@ -209,7 +223,12 @@ tutor-demo-full/
 │   └── .env.example       # Environment template
 ├── backend/
 │   ├── src/
-│   │   └── index.js       # Express server
+│   │   ├── controllers/   # Business logic (Auth, Course, Session, etc.)
+│   │   ├── middleware/    # Authentication & Validation
+│   │   ├── models/        # Data models & In-memory storage
+│   │   ├── routes/        # API Route definitions
+│   │   ├── utils/         # Helper utilities
+│   │   └── index.js       # Application entry point
 │   ├── package.json       # Node.js dependencies
 │   ├── Dockerfile        # Container configuration
 │   └── .env.example      # Environment template

@@ -118,11 +118,15 @@ function updateAuthUI() {
     const adminDashLink = document.getElementById('adminDashLink');
     const chatLink = document.getElementById('chatLink');
     const notificationsLink = document.getElementById('notificationsLink');
+    const libraryLink = document.getElementById('libraryLink');
+    const forumLink = document.getElementById('forumLink');
     
     if (currentUser) {
         logoutBtn.classList.remove('hidden');
         chatLink.classList.remove('hidden');
         notificationsLink.classList.remove('hidden');
+        libraryLink.classList.remove('hidden');
+        forumLink.classList.remove('hidden');
         
         // Show role-specific dashboard link only
         if (currentUser.role === 'student') {
@@ -155,6 +159,8 @@ function updateAuthUI() {
         adminDashLink.classList.add('hidden');
         chatLink.classList.add('hidden');
         notificationsLink.classList.add('hidden');
+        libraryLink.classList.add('hidden');
+        forumLink.classList.add('hidden');
         
         if (chatRefreshInterval) {
             clearInterval(chatRefreshInterval);
@@ -593,6 +599,10 @@ function navigateToSection(sectionId) {
         loadAdminDashboard();
     } else if (sectionId === 'chat' && currentUser) {
         loadChatSection();
+    } else if (sectionId === 'library' && currentUser) {
+        loadLibraryCategories();
+    } else if (sectionId === 'forum' && currentUser) {
+        loadForumPosts();
     }
 
     // Update active nav link
@@ -1712,6 +1722,261 @@ async function deleteResource(resourceId) {
         }
     } catch (error) {
         console.error('Failed to delete resource:', error);
+    }
+}
+
+// HCMUT Library Functions
+async function loadLibraryCategories() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/library/categories`, {
+            headers: getAuthHeaders()
+        });
+        const categories = await response.json();
+        
+        const select = document.getElementById('libraryCategoryFilter');
+        if (select) {
+            categories.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat;
+                option.textContent = cat;
+                select.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Failed to load library categories:', error);
+    }
+}
+
+async function searchLibrary() {
+    const query = document.getElementById('librarySearchInput').value;
+    const category = document.getElementById('libraryCategoryFilter').value;
+    
+    try {
+        let url = `${API_BASE_URL}/library/search?`;
+        if (query) url += `query=${encodeURIComponent(query)}&`;
+        if (category) url += `category=${encodeURIComponent(category)}`;
+        
+        const response = await fetch(url, {
+            headers: getAuthHeaders()
+        });
+        const results = await response.json();
+        
+        const resultsDiv = document.getElementById('libraryResults');
+        if (results.length > 0) {
+            resultsDiv.innerHTML = results.map(book => `
+                <div class="library-item ${book.available ? '' : 'unavailable'}">
+                    <h4>${book.title}</h4>
+                    <p><strong>Author:</strong> ${book.author}</p>
+                    <p><strong>Category:</strong> ${book.category}</p>
+                    <p><strong>Status:</strong> ${book.available ? 'Available' : 'Checked Out'}</p>
+                    ${book.available ? `<a href="${book.link}" target="_blank" class="btn btn-small btn-primary">View Book</a>` : ''}
+                </div>
+            `).join('');
+        } else {
+            resultsDiv.innerHTML = '<p>No books found.</p>';
+        }
+    } catch (error) {
+        console.error('Failed to search library:', error);
+    }
+}
+
+// Community Forum Functions
+async function loadForumPosts() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/forum/posts`, {
+            headers: getAuthHeaders()
+        });
+        const posts = await response.json();
+        
+        const postsDiv = document.getElementById('forumPosts');
+        if (posts.length > 0) {
+            postsDiv.innerHTML = posts.map(post => `
+                <div class="forum-post">
+                    <h3>${post.title}</h3>
+                    <div class="forum-post-meta">
+                        <span>By ${post.author ? post.author.username : 'Unknown'}</span>
+                        <span>${post.category}</span>
+                        <span>${new Date(post.createdAt).toLocaleDateString()}</span>
+                    </div>
+                    <p>${post.content}</p>
+                    <div class="forum-post-actions">
+                        <button class="btn btn-small" onclick="viewPostComments(${post.id})">${post.commentsCount} Comments</button>
+                        ${post.userId === currentUser.id || currentUser.role === 'admin' ? 
+                            `<button class="btn btn-small btn-danger" onclick="deleteForumPost(${post.id})">Delete</button>` : ''}
+                    </div>
+                    <div id="comments-${post.id}" class="forum-comments hidden"></div>
+                </div>
+            `).join('');
+        } else {
+            postsDiv.innerHTML = '<p>No posts yet. Be the first to create one!</p>';
+        }
+    } catch (error) {
+        console.error('Failed to load forum posts:', error);
+    }
+}
+
+function showCreatePostForm() {
+    document.getElementById('createPostForm').classList.remove('hidden');
+}
+
+function hideCreatePostForm() {
+    document.getElementById('createPostForm').classList.add('hidden');
+    document.getElementById('forumPostForm').reset();
+}
+
+document.getElementById('forumPostForm')?.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const title = document.getElementById('postTitle').value;
+    const content = document.getElementById('postContent').value;
+    const category = document.getElementById('postCategory').value;
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/forum/posts`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ title, content, category })
+        });
+        
+        if (response.ok) {
+            hideCreatePostForm();
+            loadForumPosts();
+        } else {
+            const data = await response.json();
+            alert(data.error || 'Failed to create post');
+        }
+    } catch (error) {
+        console.error('Failed to create post:', error);
+        alert('Network error');
+    }
+});
+
+async function viewPostComments(postId) {
+    const commentsDiv = document.getElementById(`comments-${postId}`);
+    
+    if (commentsDiv.classList.contains('hidden')) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/forum/posts/${postId}/comments`, {
+                headers: getAuthHeaders()
+            });
+            const comments = await response.json();
+            
+            commentsDiv.innerHTML = `
+                <div class="comment-form">
+                    <textarea id="comment-input-${postId}" placeholder="Write a comment..." rows="2"></textarea>
+                    <button class="btn btn-small btn-primary" onclick="addComment(${postId})">Post Comment</button>
+                </div>
+                <div class="comments-list">
+                    ${comments.map(c => `
+                        <div class="comment">
+                            <strong>${c.author ? c.author.username : 'Unknown'}</strong>
+                            <span>${new Date(c.createdAt).toLocaleDateString()}</span>
+                            <p>${c.content}</p>
+                        </div>
+                    `).join('') || '<p>No comments yet.</p>'}
+                </div>
+            `;
+            commentsDiv.classList.remove('hidden');
+        } catch (error) {
+            console.error('Failed to load comments:', error);
+        }
+    } else {
+        commentsDiv.classList.add('hidden');
+    }
+}
+
+async function addComment(postId) {
+    const content = document.getElementById(`comment-input-${postId}`).value;
+    if (!content.trim()) return;
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/forum/posts/${postId}/comments`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ content })
+        });
+        
+        if (response.ok) {
+            viewPostComments(postId);
+            viewPostComments(postId); // Reload comments
+        } else {
+            const data = await response.json();
+            alert(data.error || 'Failed to add comment');
+        }
+    } catch (error) {
+        console.error('Failed to add comment:', error);
+    }
+}
+
+async function deleteForumPost(postId) {
+    if (!confirm('Delete this post and all comments?')) return;
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/forum/posts/${postId}`, {
+            method: 'DELETE',
+            headers: getAuthHeaders()
+        });
+        
+        if (response.ok) {
+            loadForumPosts();
+        } else {
+            const data = await response.json();
+            alert(data.error || 'Failed to delete post');
+        }
+    } catch (error) {
+        console.error('Failed to delete post:', error);
+    }
+}
+
+// Load library categories on page load
+if (document.getElementById('libraryCategoryFilter')) {
+    loadLibraryCategories();
+}
+
+// Admin Export Functions
+async function exportReport() {
+    const type = document.getElementById('exportType').value;
+    const format = document.getElementById('exportFormat').value;
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/admin/export?type=${type}&format=${format}`, {
+            headers: getAuthHeaders()
+        });
+        
+        if (format === 'csv') {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${type}-${Date.now()}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            a.remove();
+        } else {
+            const data = await response.json();
+            alert(`Export complete! Data: ${JSON.stringify(data).substring(0, 100)}...`);
+        }
+    } catch (error) {
+        console.error('Failed to export:', error);
+        alert('Export failed');
+    }
+}
+
+async function syncDatacore() {
+    if (!confirm('Sync student data from HCMUT Datacore?')) return;
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/datacore/sync`, {
+            headers: getAuthHeaders()
+        });
+        const data = await response.json();
+        
+        alert(`${data.message}\nSynced: ${data.syncedUsers} users`);
+        loadAllUsers(); // Reload users list
+    } catch (error) {
+        console.error('Failed to sync datacore:', error);
+        alert('Datacore sync failed');
     }
 }
 
