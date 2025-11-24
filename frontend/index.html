@@ -15,9 +15,10 @@
                 </div>
                 <div class="nav-links">
                     <a href="#home" class="active">Home</a>
-                    <a href="#courses">Courses</a>
-                    <a href="#tutor">AI Tutor</a>
-                    <a href="#profile">Profile</a>
+                    <a href="#student-dashboard" id="studentDashLink" class="hidden">My Dashboard</a>
+                    <a href="#tutor-dashboard" id="tutorDashLink" class="hidden">Tutor Panel</a>
+                    <a href="#admin" id="adminDashLink" class="hidden">Admin Panel</a>
+                    <button id="logoutBtn" class="btn btn-small hidden">Logout</button>
                 </div>
             </nav>
         </header>
@@ -46,15 +47,39 @@
                         <input type="email" id="email" required>
                     </div>
                     <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" required minlength="6">
+                    </div>
+                    <div class="form-group">
                         <label for="role">Role</label>
                         <select id="role">
                             <option value="student">Student</option>
                             <option value="tutor">Tutor</option>
+                            <option value="admin">Admin</option>
                         </select>
                     </div>
                     <button type="submit" class="btn btn-primary">Register</button>
                 </form>
                 <div id="registerMessage" class="message"></div>
+                <p class="toggle-form">Already have an account? <a href="#" onclick="showSection('login'); return false;">Login here</a></p>
+            </section>
+
+            <!-- Login Section -->
+            <section id="login" class="section hidden">
+                <h2>Login to Your Account</h2>
+                <form id="loginForm" class="form">
+                    <div class="form-group">
+                        <label for="loginEmail">Email</label>
+                        <input type="email" id="loginEmail" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="loginPassword">Password</label>
+                        <input type="password" id="loginPassword" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Login</button>
+                </form>
+                <div id="loginMessage" class="message"></div>
+                <p class="toggle-form">Don't have an account? <a href="#" onclick="showSection('register'); return false;">Register here</a></p>
             </section>
 
             <!-- Courses Section -->
@@ -92,6 +117,96 @@
                         <input type="text" id="question" placeholder="Ask a question..." required>
                         <button type="submit" class="btn btn-primary">Ask</button>
                     </form>
+                </div>
+            </section>
+
+            <!-- Student Dashboard -->
+            <section id="student-dashboard" class="section hidden">
+                <h2>Student Dashboard</h2>
+                <div class="welcome-section">
+                    <h3 id="studentWelcome"></h3>
+                </div>
+                <div class="dashboard-section">
+                    <h3>My Enrolled Courses</h3>
+                    <div id="myEnrolledCourses" class="courses-grid"></div>
+                </div>
+                <div class="dashboard-section">
+                    <h3>Available Courses</h3>
+                    <div class="filters">
+                        <select id="studentSubjectFilter" onchange="filterStudentCourses()">
+                            <option value="">All Subjects</option>
+                                <option value="math">Mathematics</option>
+                            <option value="science">Science</option>
+                            <option value="programming">Programming</option>
+                        </select>
+                        <select id="studentLevelFilter" onchange="filterStudentCourses()">
+                            <option value="">All Levels</option>
+                            <option value="beginner">Beginner</option>
+                            <option value="intermediate">Intermediate</option>
+                            <option value="advanced">Advanced</option>
+                        </select>
+                    </div>
+                    <div id="studentCoursesList" class="courses-grid"></div>
+                </div>
+                <div class="dashboard-section">
+                    <h3>AI Tutor - Quick Ask</h3>
+                    <form id="quickTutorForm" class="chat-form">
+                        <select id="quickSubject">
+                            <option value="default">General</option>
+                            <option value="math">Mathematics</option>
+                            <option value="science">Science</option>
+                            <option value="programming">Programming</option>
+                        </select>
+                        <input type="text" id="quickQuestion" placeholder="Ask a question..." required>
+                        <button type="submit" class="btn btn-primary">Ask</button>
+                    </form>
+                    <div id="quickChatHistory" class="chat-history" style="max-height: 300px;"></div>
+                </div>
+            </section>
+
+            <!-- Tutor Dashboard -->
+            <section id="tutor-dashboard" class="section hidden">
+                <h2>Tutor Dashboard</h2>
+                <div class="dashboard-section">
+                    <h3>Create New Course</h3>
+                    <form id="createCourseForm" class="form">
+                        <div class="form-group">
+                            <label for="courseTitle">Course Title</label>
+                            <input type="text" id="courseTitle" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="courseSubject">Subject</label>
+                            <select id="courseSubject" required>
+                                <option value="math">Mathematics</option>
+                                <option value="science">Science</option>
+                                <option value="programming">Programming</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="courseLevel">Level</label>
+                            <select id="courseLevel" required>
+                                <option value="beginner">Beginner</option>
+                                <option value="intermediate">Intermediate</option>
+                                <option value="advanced">Advanced</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Create Course</button>
+                    </form>
+                    <div id="createCourseMessage" class="message"></div>
+                </div>
+                <div class="dashboard-section">
+                    <h3>My Courses</h3>
+                    <div id="tutorCoursesList"></div>
+                </div>
+            </section>
+
+            <!-- Admin Dashboard -->
+            <section id="admin" class="section hidden">
+                <h2>Admin Dashboard</h2>
+                <div id="adminStats" class="stats-grid"></div>
+                <div class="dashboard-section">
+                    <h3>User Management</h3>
+                    <div id="usersList"></div>
                 </div>
             </section>
 
