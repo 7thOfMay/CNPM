@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - TutorPro</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        .auth-container {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 450px;
+        }
+        .auth-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .auth-header h1 {
+            color: var(--primary-blue);
+            margin-bottom: 0.5rem;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-header">
+            <h1>TutorPro</h1>
+            <p>Welcome back! Please login to continue.</p>
+        </div>
+
+        <!-- Login Form -->
+        <div id="loginSection">
+            <form id="loginForm" class="form" style="margin: 0; padding: 0; box-shadow: none;">
+                <div class="form-group">
+                    <label for="loginEmail">Email</label>
+                    <input type="email" id="loginEmail" required>
+                </div>
+                <div class="form-group">
+                    <label for="loginPassword">Password</label>
+                    <input type="password" id="loginPassword" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Login</button>
+            </form>
+            <div class="sso-divider">
+                <span>OR</span>
+            </div>
+            <button type="button" class="btn btn-sso" onclick="loginWithSSO()">Sign in with HCMUT SSO</button>
+            <div id="loginMessage" class="message" style="display: none;"></div>
+            <p class="toggle-form">Don't have an account? <a href="#" onclick="toggleAuth('register'); return false;">Register here</a></p>
+            <p class="toggle-form"><a href="index.html">Back to Home</a></p>
+        </div>
+
+        <!-- Register Form -->
+        <div id="registerSection" class="hidden">
+            <form id="registerForm" class="form" style="margin: 0; padding: 0; box-shadow: none;">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" required minlength="6">
+                </div>
+                <div class="form-group">
+                    <label for="role">Role</label>
+                    <select id="role">
+                        <option value="student">Student</option>
+                        <option value="tutor">Tutor</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Register</button>
+            </form>
+            <div id="registerMessage" class="message" style="display: none;"></div>
+            <p class="toggle-form">Already have an account? <a href="#" onclick="toggleAuth('login'); return false;">Login here</a></p>
+            <p class="toggle-form"><a href="index.html">Back to Home</a></p>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        // Simple toggle function for this page
+        function toggleAuth(mode) {
+            if (mode === 'register') {
+                document.getElementById('loginSection').classList.add('hidden');
+                document.getElementById('registerSection').classList.remove('hidden');
+                document.querySelector('.auth-header p').textContent = 'Create an account to get started.';
+            } else {
+                document.getElementById('loginSection').classList.remove('hidden');
+                document.getElementById('registerSection').classList.add('hidden');
+                document.querySelector('.auth-header p').textContent = 'Welcome back! Please login to continue.';
+            }
+        }
+    </script>
+</body>
+</html>

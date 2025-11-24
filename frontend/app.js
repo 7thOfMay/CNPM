@@ -11,27 +11,23 @@ let chatRefreshInterval = null;
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
     loadUserFromStorage();
-    loadCourses();
+    
+    // Only load courses if we are on a page that needs them
+    if (document.getElementById('coursesList') || document.getElementById('studentCoursesList')) {
+        loadCourses();
+    }
+    
     checkSystemHealth();
     setupEventListeners();
     updateAuthUI();
     
-    // Auto-redirect to dashboard if logged in
-    if (currentUser) {
-        redirectToRoleDashboard();
-    }
+    // Auto-redirect logic is now handled by individual pages
 });
 
 // Event Listeners
 function setupEventListeners() {
-    // Navigation
-    document.querySelectorAll('.nav-links a').forEach(link => {
-        link.addEventListener('click', (e) => {
-            e.preventDefault();
-            const section = e.target.getAttribute('href').substring(1);
-            navigateToSection(section);
-        });
-    });
+    // Navigation - Only for index.html SPA-like sections if they exist
+    // We removed the global nav listener to avoid conflicts with dashboard tabs
 
     // Registration form
     const registerForm = document.getElementById('registerForm');
@@ -120,6 +116,7 @@ function updateAuthUI() {
     const notificationsLink = document.getElementById('notificationsLink');
     const libraryLink = document.getElementById('libraryLink');
     const forumLink = document.getElementById('forumLink');
+    const getStartedBtn = document.getElementById('getStartedBtn');
     
     if (currentUser) {
         logoutBtn.classList.remove('hidden');
@@ -127,6 +124,7 @@ function updateAuthUI() {
         notificationsLink.classList.remove('hidden');
         libraryLink.classList.remove('hidden');
         forumLink.classList.remove('hidden');
+        if (getStartedBtn) getStartedBtn.classList.add('hidden');
         
         // Show role-specific dashboard link only
         if (currentUser.role === 'student') {
@@ -161,6 +159,7 @@ function updateAuthUI() {
         notificationsLink.classList.add('hidden');
         libraryLink.classList.add('hidden');
         forumLink.classList.add('hidden');
+        if (getStartedBtn) getStartedBtn.classList.remove('hidden');
         
         if (chatRefreshInterval) {
             clearInterval(chatRefreshInterval);
@@ -293,33 +292,31 @@ async function handleLogin(e) {
 // User Logout
 function handleLogout() {
     clearUserFromStorage();
-    updateAuthUI();
-    navigateToSection('home');
-    alert('Logged out successfully');
+    window.location.href = 'login.html';
 }
 
 // Redirect to role-specific dashboard
 function redirectToRoleDashboard() {
     if (!currentUser) {
-        navigateToSection('home');
+        window.location.href = 'login.html';
         return;
     }
     
     if (currentUser.role === 'student') {
-        navigateToSection('student-dashboard');
+        window.location.href = 'student.html';
     } else if (currentUser.role === 'tutor') {
-        navigateToSection('tutor-dashboard');
+        window.location.href = 'tutor.html';
     } else if (currentUser.role === 'admin') {
-        navigateToSection('admin');
+        window.location.href = 'admin.html';
     } else {
-        navigateToSection('home');
+        window.location.href = 'index.html';
     }
 }
 
 // Student Dashboard Functions
 function loadStudentDashboard() {
     const welcomeEl = document.getElementById('studentWelcome');
-    if (currentUser) {
+    if (welcomeEl && currentUser) {
         welcomeEl.textContent = `Welcome back, ${currentUser.username}!`;
     }
     loadStudentCourses();
@@ -344,6 +341,7 @@ async function loadStudentCourses() {
 
 function displayStudentCourses(courses) {
     const coursesList = document.getElementById('studentCoursesList');
+    if (!coursesList) return;
     
     if (courses.length === 0) {
         coursesList.innerHTML = '<p>No courses available.</p>';
@@ -384,7 +382,9 @@ function filterStudentCourses() {
 
 function loadEnrolledCourses() {
     const enrolledList = document.getElementById('myEnrolledCourses');
-    enrolledList.innerHTML = '<p>Your enrolled courses will appear here after enrollment.</p>';
+    if (enrolledList) {
+        enrolledList.innerHTML = '<p>Your enrolled courses will appear here after enrollment.</p>';
+    }
 }
 
 // Tutor - Create Course
@@ -435,6 +435,8 @@ async function loadTutorCourses() {
         const data = await response.json();
         
         const tutorCoursesList = document.getElementById('tutorCoursesList');
+        if (!tutorCoursesList) return;
+
         if (data.courses && data.courses.length > 0) {
             tutorCoursesList.innerHTML = data.courses.map(course => `
                 <div class="course-card">
@@ -469,42 +471,51 @@ async function loadAdminStats() {
         const data = await response.json();
         
         // Update metric cards with enhanced data
-        document.getElementById('totalSessions').textContent = data.totalSessions || 0;
-        document.getElementById('avgRating').textContent = data.avgRating || 'N/A';
-        document.getElementById('completionRate').textContent = data.completionRate || 0;
-        document.getElementById('activeUsers').textContent = data.activeUsers || 0;
+        const totalSessionsEl = document.getElementById('totalSessions');
+        if (totalSessionsEl) totalSessionsEl.textContent = data.totalSessions || 0;
+        
+        const avgRatingEl = document.getElementById('avgRating');
+        if (avgRatingEl) avgRatingEl.textContent = data.avgRating || 'N/A';
+        
+        const completionRateEl = document.getElementById('completionRate');
+        if (completionRateEl) completionRateEl.textContent = data.completionRate || 0;
+        
+        const activeUsersEl = document.getElementById('activeUsers');
+        if (activeUsersEl) activeUsersEl.textContent = data.activeUsers || 0;
         
         const adminStats = document.getElementById('adminStats');
-        adminStats.innerHTML = `
-            <div class="stat-card">
-                <h3>${data.totalUsers}</h3>
-                <p>Total Users</p>
-            </div>
-            <div class="stat-card">
-                <h3>${data.totalCourses}</h3>
-                <p>Total Courses</p>
-            </div>
-            <div class="stat-card">
-                <h3>${data.usersByRole.students}</h3>
-                <p>Students</p>
-            </div>
-            <div class="stat-card">
-                <h3>${data.usersByRole.tutors}</h3>
-                <p>Tutors</p>
-            </div>
-            <div class="stat-card">
-                <h3>${data.totalEnrollments}</h3>
-                <p>Total Enrollments</p>
-            </div>
-            <div class="stat-card">
-                <h3>${data.totalResources || 0}</h3>
-                <p>Resources</p>
-            </div>
-            <div class="stat-card">
-                <h3>${data.emailsSent || 0}</h3>
-                <p>Emails Sent</p>
-            </div>
-        `;
+        if (adminStats) {
+            adminStats.innerHTML = `
+                <div class="stat-card">
+                    <h3>${data.totalUsers}</h3>
+                    <p>Total Users</p>
+                </div>
+                <div class="stat-card">
+                    <h3>${data.totalCourses}</h3>
+                    <p>Total Courses</p>
+                </div>
+                <div class="stat-card">
+                    <h3>${data.usersByRole.students}</h3>
+                    <p>Students</p>
+                </div>
+                <div class="stat-card">
+                    <h3>${data.usersByRole.tutors}</h3>
+                    <p>Tutors</p>
+                </div>
+                <div class="stat-card">
+                    <h3>${data.totalEnrollments}</h3>
+                    <p>Total Enrollments</p>
+                </div>
+                <div class="stat-card">
+                    <h3>${data.totalResources || 0}</h3>
+                    <p>Resources</p>
+                </div>
+                <div class="stat-card">
+                    <h3>${data.emailsSent || 0}</h3>
+                    <p>Emails Sent</p>
+                </div>
+            `;
+        }
     } catch (error) {
         console.error('Failed to load admin stats:', error);
     }
@@ -518,6 +529,8 @@ async function loadAllUsers() {
         const data = await response.json();
         
         const usersList = document.getElementById('usersList');
+        if (!usersList) return;
+
         if (data.users && data.users.length > 0) {
             usersList.innerHTML = `
                 <table class="users-table">

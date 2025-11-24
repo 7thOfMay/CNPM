@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - TutorPro</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <nav class="navbar">
+                <div class="logo">
+                    <h1>TutorPro <span style="font-size: 0.8em; opacity: 0.8; color: #ff4757;">Admin</span></h1>
+                </div>
+                <div class="nav-links">
+                    <a href="#dashboard" class="active" onclick="showTab('dashboard')">Overview</a>
+                    <a href="#users" onclick="showTab('users')">User Management</a>
+                    <a href="#system" onclick="showTab('system')">System & Data</a>
+                    <a href="#notifications" id="notificationsLink">Notifications <span id="notificationBadge" class="badge hidden">0</span></a>
+                    <button id="logoutBtn" class="btn btn-small">Logout</button>
+                </div>
+            </nav>
+        </header>
+
+        <main style="padding: 2rem;">
+            <div class="welcome-section">
+                <h3>System Administration</h3>
+            </div>
+
+            <!-- Dashboard Tab -->
+            <div id="tab-dashboard" class="tab-content">
+                <div class="dashboard-section">
+                    <h3>Platform Statistics</h3>
+                    <div id="adminStats" class="stats-grid">
+                        <!-- Stats will be loaded here -->
+                        <div class="stat-card">
+                            <h3>Loading...</h3>
+                            <p>Fetching data</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="dashboard-section">
+                    <h3>Key Metrics</h3>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <h3 id="totalSessions">-</h3>
+                            <p>Total Sessions</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3 id="avgRating">-</h3>
+                            <p>Avg Rating</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3 id="completionRate">-</h3>
+                            <p>Completion Rate</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3 id="activeUsers">-</h3>
+                            <p>Active Users</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Users Tab -->
+            <div id="tab-users" class="tab-content hidden">
+                <div class="dashboard-section">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <h3>User Management</h3>
+                        <button class="btn btn-primary" onclick="loadAllUsers()">Refresh List</button>
+                    </div>
+                    <div id="usersList">
+                        <p>Loading users...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Tab -->
+            <div id="tab-system" class="tab-content hidden">
+                <div class="dashboard-section">
+                    <h3>Data Export</h3>
+                    <div class="form-group">
+                        <label for="exportType">Data Type</label>
+                        <select id="exportType">
+                            <option value="users">Users</option>
+                            <option value="courses">Courses</option>
+                            <option value="sessions">Sessions</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="exportFormat">Format</label>
+                        <select id="exportFormat">
+                            <option value="json">JSON</option>
+                            <option value="csv">CSV</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" onclick="exportReport()">Export Data</button>
+                </div>
+
+                <div class="dashboard-section">
+                    <h3>HCMUT Datacore Integration</h3>
+                    <p style="margin-bottom: 1rem;">Sync student data from the university database.</p>
+                    <button class="btn btn-secondary" onclick="syncDatacore()">Sync Student Data</button>
+                </div>
+
+                <div class="dashboard-section">
+                    <h3>System Health</h3>
+                    <div id="healthStatus" class="health-grid">
+                        <!-- Health status loaded via JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Notifications Section -->
+            <section id="notifications" class="section hidden">
+                <h2>Notifications</h2>
+                <div class="dashboard-section">
+                    <button class="btn btn-secondary" onclick="markAllNotificationsRead()">Mark All as Read</button>
+                    <div id="notificationsList" style="margin-top: 1rem;"></div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        function showTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
+            document.querySelectorAll('.section').forEach(sec => sec.classList.add('hidden'));
+            
+            const selectedTab = document.getElementById(`tab-${tabName}`);
+            if (selectedTab) {
+                selectedTab.classList.remove('hidden');
+            } else {
+                const section = document.getElementById(tabName);
+                if (section) section.classList.remove('hidden');
+            }
+
+            document.querySelectorAll('.nav-links a').forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href') === `#${tabName}`) {
+                    link.classList.add('active');
+                }
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const user = JSON.parse(localStorage.getItem('currentUser'));
+            if (!user || user.role !== 'admin') {
+                window.location.href = 'login.html';
+                return;
+            }
+            
+            loadAdminDashboard();
+            checkSystemHealth();
+        });
+    </script>
+</body>
+</html>

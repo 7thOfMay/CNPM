@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Dashboard - TutorPro</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <nav class="navbar">
+                <div class="logo">
+                    <h1>TutorPro <span style="font-size: 0.8em; opacity: 0.8;">Student</span></h1>
+                </div>
+                <div class="nav-links">
+                    <a href="#dashboard" class="active" onclick="showTab('dashboard')">Dashboard</a>
+                    <a href="#courses" onclick="showTab('courses')">Courses</a>
+                    <a href="#schedule" onclick="showTab('schedule')">Schedule</a>
+                    <a href="#chat" id="chatLink">Messages <span id="unreadBadge" class="badge hidden">0</span></a>
+                    <a href="#notifications" id="notificationsLink">Notifications <span id="notificationBadge" class="badge hidden">0</span></a>
+                    <button id="logoutBtn" class="btn btn-small">Logout</button>
+                </div>
+            </nav>
+        </header>
+
+        <main style="padding: 2rem;">
+            <div class="welcome-section">
+                <h3 id="studentWelcome">Welcome back!</h3>
+            </div>
+
+            <!-- Dashboard Tab -->
+            <div id="tab-dashboard" class="tab-content">
+                <div class="dashboard-section">
+                    <h3>My Enrolled Courses</h3>
+                    <div id="myEnrolledCourses" class="courses-grid"></div>
+                </div>
+                
+                <div class="dashboard-section">
+                    <h3>AI Tutor - Quick Ask</h3>
+                    <form id="quickTutorForm" class="chat-form">
+                        <select id="quickSubject">
+                            <option value="default">General</option>
+                            <option value="math">Mathematics</option>
+                            <option value="science">Science</option>
+                            <option value="programming">Programming</option>
+                        </select>
+                        <input type="text" id="quickQuestion" placeholder="Ask a question..." required>
+                        <button type="submit" class="btn btn-primary">Ask</button>
+                    </form>
+                    <div id="quickChatHistory" class="chat-history" style="max-height: 300px;"></div>
+                </div>
+
+                <div class="dashboard-section">
+                    <h3>Recommended Tutors</h3>
+                    <div class="filters" style="margin-bottom: 1rem;">
+                        <select id="matchSubjectFilter">
+                            <option value="">All Subjects</option>
+                            <option value="math">Mathematics</option>
+                            <option value="science">Science</option>
+                            <option value="programming">Programming</option>
+                        </select>
+                        <select id="matchLevelFilter">
+                            <option value="">All Levels</option>
+                            <option value="beginner">Beginner</option>
+                            <option value="intermediate">Intermediate</option>
+                            <option value="advanced">Advanced</option>
+                        </select>
+                        <button class="btn btn-primary" onclick="loadRecommendedTutors()">Find Tutors</button>
+                    </div>
+                    <div id="recommendedTutorsList"></div>
+                </div>
+            </div>
+
+            <!-- Courses Tab -->
+            <div id="tab-courses" class="tab-content hidden">
+                <div class="dashboard-section">
+                    <h3>Available Courses</h3>
+                    <div class="filters">
+                        <select id="studentSubjectFilter" onchange="filterStudentCourses()">
+                            <option value="">All Subjects</option>
+                            <option value="math">Mathematics</option>
+                            <option value="science">Science</option>
+                            <option value="programming">Programming</option>
+                        </select>
+                        <select id="studentLevelFilter" onchange="filterStudentCourses()">
+                            <option value="">All Levels</option>
+                            <option value="beginner">Beginner</option>
+                            <option value="intermediate">Intermediate</option>
+                            <option value="advanced">Advanced</option>
+                        </select>
+                    </div>
+                    <div id="studentCoursesList" class="courses-grid"></div>
+                </div>
+                <div class="dashboard-section">
+                    <h3>Learning Resources</h3>
+                    <div id="studentResourcesList" class="resource-list"></div>
+                </div>
+            </div>
+
+            <!-- Schedule Tab -->
+            <div id="tab-schedule" class="tab-content hidden">
+                <div class="dashboard-section">
+                    <h3>My Schedule</h3>
+                    <div style="margin-bottom: 1rem;">
+                        <button class="btn btn-primary" onclick="toggleCalendarView()">
+                            <span id="viewToggleText">Calendar View</span>
+                        </button>
+                    </div>
+                    <div id="calendarView" class="calendar-container hidden"></div>
+                    <div id="studentSchedule" class="schedule-list"></div>
+                </div>
+            </div>
+
+            <!-- Chat Section (Hidden by default, shown via app.js logic) -->
+            <section id="chat" class="section hidden">
+                <h2>Messages</h2>
+                <div class="chat-container-main">
+                    <div class="chat-sidebar">
+                        <h3>Conversations</h3>
+                        <div class="chat-user-search">
+                            <input type="text" id="userSearch" placeholder="Search users...">
+                            <button id="newChatBtn" class="btn btn-primary">New Chat</button>
+                        </div>
+                        <div id="chatRoomsList" class="chat-rooms-list"></div>
+                    </div>
+                    <div class="chat-main">
+                        <div id="chatHeader" class="chat-header">
+                            <p>Select a conversation to start messaging</p>
+                        </div>
+                        <div id="chatMessagesArea" class="chat-messages-area"></div>
+                        <div id="chatInputArea" class="chat-input-area hidden">
+                            <form id="chatMessageForm">
+                                <input type="text" id="chatMessageInput" placeholder="Type a message..." required>
+                                <button type="submit" class="btn btn-primary">Send</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- New Chat Modal -->
+                <div id="newChatModal" class="modal hidden">
+                    <div class="modal-content">
+                        <span class="close-modal">&times;</span>
+                        <h3>Start New Conversation</h3>
+                        <div id="availableUsersList" class="users-list-modal"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Notifications Section -->
+            <section id="notifications" class="section hidden">
+                <h2>Notifications</h2>
+                <div class="dashboard-section">
+                    <button class="btn btn-secondary" onclick="markAllNotificationsRead()">Mark All as Read</button>
+                    <div id="notificationsList" style="margin-top: 1rem;"></div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        // Tab switching logic
+        function showTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
+            document.querySelectorAll('.section').forEach(sec => sec.classList.add('hidden'));
+            
+            // Show selected tab
+            const selectedTab = document.getElementById(`tab-${tabName}`);
+            if (selectedTab) {
+                selectedTab.classList.remove('hidden');
+            } else {
+                // If it's a section (like chat or notifications)
+                const section = document.getElementById(tabName);
+                if (section) section.classList.remove('hidden');
+            }
+
+            // Update nav active state
+            document.querySelectorAll('.nav-links a').forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href') === `#${tabName}`) {
+                    link.classList.add('active');
+                }
+            });
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            // Check auth
+            const user = JSON.parse(localStorage.getItem('currentUser'));
+            if (!user || user.role !== 'student') {
+                window.location.href = 'login.html';
+                return;
+            }
+            
+            // Load initial data
+            loadStudentDashboard();
+        });
+    </script>
+</body>
+</html>

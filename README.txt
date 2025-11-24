@@ -24,6 +24,12 @@ The application consists of three main services:
 # 3. Frontend (HTML/CSS/JavaScript)
 - Port: 8080 (when using nginx)
 - Responsive web interface
+- Multi-page application structure:
+  - `index.html`: Landing page
+  - `login.html`: Authentication (Login/Register)
+  - `student.html`: Student Dashboard
+  - `tutor.html`: Tutor Dashboard
+  - `admin.html`: Admin Dashboard
 - Real-time chat with AI tutor
 - Course browsing and enrollment
 - User registration
@@ -233,9 +239,13 @@ tutor-demo-full/
 │   ├── Dockerfile        # Container configuration
 │   └── .env.example      # Environment template
 ├── frontend/
-│   ├── index.html        # Main HTML file
-│   ├── styles.css        # Styling
-│   └── app.js           # Frontend logic
+│   ├── index.html        # Landing page
+│   ├── login.html        # Login/Register page
+│   ├── student.html      # Student Dashboard
+│   ├── tutor.html        # Tutor Dashboard
+│   ├── admin.html        # Admin Dashboard
+│   ├── styles.css        # Shared styling
+│   └── app.js           # Shared frontend logic
 ├── docs/                # Project documentation
 ├── docker-compose.yml   # Multi-container setup
 └── README.txt          # This file
