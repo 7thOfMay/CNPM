@@ -39,7 +39,7 @@ describe('Authentication Endpoints', () => {
             expect(response.body.user.role).toBe('tutor');
         });
 
-        it('should register an admin successfully', async () => {
+        it('should reject admin role registration', async () => {
             const response = await request(app)
                 .post('/api/auth/register')
                 .send({
@@ -49,8 +49,8 @@ describe('Authentication Endpoints', () => {
                     role: 'admin'
                 });
 
-            expect(response.statusCode).toBe(201);
-            expect(response.body.user.role).toBe('admin');
+            expect(response.statusCode).toBe(400);
+            expect(response.body.error).toContain('Invalid role');
         });
 
         it('should reject invalid role', async () => {
@@ -239,12 +239,10 @@ describe('Role-Based Access Control', () => {
         tutorToken = tutor.body.token;
 
         const admin = await request(app)
-            .post('/api/auth/register')
+            .post('/api/auth/login')
             .send({
-                username: 'admin1',
-                email: 'admin1@example.com',
-                password: 'password123',
-                role: 'admin'
+                email: 'admin@tutorpro.com',
+                password: 'admin123'
             });
         adminToken = admin.body.token;
     });

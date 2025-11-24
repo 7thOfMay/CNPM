@@ -15,7 +15,17 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // In-memory database for demo
-const users = [];
+// Hardcoded admin account: email: admin@tutorpro.com, password: admin123
+const users = [
+    {
+        id: 1,
+        username: 'admin',
+        email: 'admin@tutorpro.com',
+        password: '$2a$10$8K1p/a0dL3.I7KU.PvzP3eZ9zqGzM5vO4qJ9R1Xw9QC1qKfE8rZHm',
+        role: 'admin',
+        createdAt: new Date().toISOString()
+    }
+];
 const courses = [
     { id: 1, title: 'Introduction to Mathematics', subject: 'math', level: 'beginner', enrolled: 0 },
     { id: 2, title: 'Advanced Physics', subject: 'science', level: 'advanced', enrolled: 0 },
@@ -45,9 +55,9 @@ app.post('/api/auth/register', async (req, res) => {
             return res.status(400).json({ error: 'Password must be at least 6 characters' });
         }
 
-        const validRoles = ['student', 'tutor', 'admin'];
+        const validRoles = ['student', 'tutor'];
         if (!validRoles.includes(role)) {
-            return res.status(400).json({ error: 'Invalid role. Must be student, tutor, or admin' });
+            return res.status(400).json({ error: 'Invalid role. Must be student or tutor' });
         }
         
         const existingUser = users.find(u => u.email === email);
