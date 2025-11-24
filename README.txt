@@ -2,7 +2,7 @@
 
 A modern online tutoring platform with AI-powered assistance, course management, and real-time tutoring capabilities.
 
-## 🏗️ Architecture
+## Architecture
 
 The application consists of three main services:
 
@@ -26,7 +26,7 @@ The application consists of three main services:
 - Course browsing and enrollment
 - User registration
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Option 1: Docker Compose (Recommended)
 
@@ -73,7 +73,7 @@ python -m http.server 8080
 npx serve -p 8080
 ```
 
-## 📋 Features
+## Features
 
 ### User Management
 - User registration (students and tutors)
@@ -97,7 +97,7 @@ npx serve -p 8080
 - Real-time status monitoring
 - Service availability tracking
 
-## 🔧 API Documentation
+## API Documentation
 
 ### Backend API Endpoints
 
@@ -152,7 +152,7 @@ POST /api/ai/recommend
 Body: { level, interests }
 ```
 
-## 🔐 Environment Variables
+## Environment Variables
 
 ### AI Service (.env)
 ```
@@ -168,7 +168,7 @@ AI_SERVICE_URL=http://localhost:5000
 NODE_ENV=development
 ```
 
-## 📦 Dependencies
+## Dependencies
 
 ### AI Service
 - Flask 3.0.0
@@ -182,7 +182,7 @@ NODE_ENV=development
 - axios 1.6.2
 - dotenv 16.3.1
 
-## 🧪 Testing
+## Testing
 
 Run backend tests:
 ```bash
@@ -196,7 +196,7 @@ cd ai-service
 pytest
 ```
 
-## 📝 Development
+## Development
 
 ### Code Structure
 
@@ -222,7 +222,7 @@ tutor-demo-full/
 └── README.txt          # This file
 ```
 
-## 🔄 Development Workflow
+## Development Workflow
 
 1. Make changes to the code
 2. Test locally
@@ -230,7 +230,7 @@ tutor-demo-full/
 4. Push to repository
 5. Deploy using Docker Compose
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Port Already in Use
 If you get port conflicts:
@@ -257,7 +257,7 @@ CORS is enabled on both services. If you still face issues:
 1. Check the CORS configuration in backend and AI service
 2. Verify the frontend is making requests to the correct URLs
 
-## 📚 Additional Resources
+## Additional Resources
 
 See `docs/` folder for:
 - Project specifications
@@ -265,7 +265,7 @@ See `docs/` folder for:
 - API documentation
 - Report documents
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch
@@ -273,11 +273,11 @@ See `docs/` folder for:
 4. Test thoroughly
 5. Submit a pull request
 
-## 📄 License
+## License
 
 This project is for educational purposes.
 
-## 📧 Support
+## Support
 
 For questions or issues, please refer to the documentation in the `docs/` folder.
 
