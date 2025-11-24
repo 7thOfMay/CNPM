@@ -18,6 +18,7 @@
                     <a href="#student-dashboard" id="studentDashLink" class="hidden">My Dashboard</a>
                     <a href="#tutor-dashboard" id="tutorDashLink" class="hidden">Tutor Panel</a>
                     <a href="#admin" id="adminDashLink" class="hidden">Admin Panel</a>
+                    <a href="#notifications" id="notificationsLink" class="hidden">Notifications <span id="notificationBadge" class="badge hidden">0</span></a>
                     <a href="#chat" id="chatLink" class="hidden">Messages <span id="unreadBadge" class="badge hidden">0</span></a>
                     <button id="logoutBtn" class="btn btn-small hidden">Logout</button>
                 </div>
@@ -78,6 +79,10 @@
                     </div>
                     <button type="submit" class="btn btn-primary">Login</button>
                 </form>
+                <div class="sso-divider">
+                    <span>OR</span>
+                </div>
+                <button type="button" class="btn btn-sso" onclick="loginWithSSO()">Sign in with HCMUT SSO</button>
                 <div id="loginMessage" class="message"></div>
                 <p class="toggle-form">Don't have an account? <a href="#" onclick="showSection('register'); return false;">Register here</a></p>
             </section>
@@ -149,6 +154,39 @@
                     <div id="studentCoursesList" class="courses-grid"></div>
                 </div>
                 <div class="dashboard-section">
+                    <h3>My Schedule</h3>
+                    <div style="margin-bottom: 1rem;">
+                        <button class="btn btn-primary" onclick="toggleCalendarView()">
+                            <span id="viewToggleText">Calendar View</span>
+                        </button>
+                    </div>
+                    <div id="calendarView" class="calendar-container hidden"></div>
+                    <div id="studentSchedule" class="schedule-list"></div>
+                </div>
+                <div class="dashboard-section">
+                    <h3>Learning Resources</h3>
+                    <div id="studentResourcesList" class="resource-list"></div>
+                </div>
+                <div class="dashboard-section">
+                    <h3>Recommended Tutors</h3>
+                    <div class="filters" style="margin-bottom: 1rem;">
+                        <select id="matchSubjectFilter">
+                            <option value="">All Subjects</option>
+                            <option value="math">Mathematics</option>
+                            <option value="science">Science</option>
+                            <option value="programming">Programming</option>
+                        </select>
+                        <select id="matchLevelFilter">
+                            <option value="">All Levels</option>
+                            <option value="beginner">Beginner</option>
+                            <option value="intermediate">Intermediate</option>
+                            <option value="advanced">Advanced</option>
+                        </select>
+                        <button class="btn btn-primary" onclick="loadRecommendedTutors()">Find Tutors</button>
+                    </div>
+                    <div id="recommendedTutorsList"></div>
+                </div>
+                <div class="dashboard-section">
                     <h3>AI Tutor - Quick Ask</h3>
                     <form id="quickTutorForm" class="chat-form">
                         <select id="quickSubject">
@@ -198,15 +236,143 @@
                     <h3>My Courses</h3>
                     <div id="tutorCoursesList"></div>
                 </div>
+                <div class="dashboard-section">
+                    <h3>Create Session</h3>
+                    <form id="createSessionForm" class="form">
+                        <div class="form-group">
+                            <label for="sessionCourse">Course</label>
+                            <select id="sessionCourse" required></select>
+                        </div>
+                        <div class="form-group">
+                            <label for="sessionDate">Date</label>
+                            <input type="date" id="sessionDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="sessionStartTime">Start Time</label>
+                            <input type="time" id="sessionStartTime" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="sessionEndTime">End Time</label>
+                            <input type="time" id="sessionEndTime" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="sessionMaxStudents">Max Students</label>
+                            <input type="number" id="sessionMaxStudents" value="10" min="1" max="50">
+                        </div>
+                        <div class="form-group">
+                            <label for="sessionLocation">Location</label>
+                            <input type="text" id="sessionLocation" placeholder="Online or physical address">
+                        </div>
+                        <div class="form-group">
+                            <label for="sessionDescription">Description</label>
+                            <textarea id="sessionDescription" rows="3"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Create Session</button>
+                    </form>
+                    <div id="createSessionMessage" class="message"></div>
+                </div>
+                <div class="dashboard-section">
+                    <h3>My Sessions</h3>
+                    <div id="tutorSessionsList"></div>
+                </div>
+                <div class="dashboard-section">
+                    <h3>Course Progress</h3>
+                    <div id="tutorProgressView"></div>
+                </div>
+                <div class="dashboard-section">
+                    <h3>Learning Resources</h3>
+                    <form id="createResourceForm" class="form" style="margin-bottom: 2rem;">
+                        <div class="form-group">
+                            <label for="resourceCourse">Course (Optional - leave blank for public)</label>
+                            <select id="resourceCourse"></select>
+                        </div>
+                        <div class="form-group">
+                            <label for="resourceTitle">Title</label>
+                            <input type="text" id="resourceTitle" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="resourceType">Type</label>
+                            <select id="resourceType" required>
+                                <option value="pdf">PDF Document</option>
+                                <option value="video">Video</option>
+                                <option value="link">External Link</option>
+                                <option value="document">Document</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="resourceUrl">URL/Link</label>
+                            <input type="url" id="resourceUrl" placeholder="https://...">
+                        </div>
+                        <div class="form-group">
+                            <label for="resourceDescription">Description</label>
+                            <textarea id="resourceDescription" rows="3"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Add Resource</button>
+                    </form>
+                    <div id="createResourceMessage" class="message"></div>
+                    <div id="tutorResourcesList" class="resource-list"></div>
+                </div>
             </section>
 
             <!-- Admin Dashboard -->
             <section id="admin" class="section hidden">
                 <h2>Admin Dashboard</h2>
                 <div id="adminStats" class="stats-grid"></div>
+                <div class="analytics-grid">
+                    <div class="chart-container">
+                        <h4>User Growth</h4>
+                        <div class="chart-placeholder">Chart: User registrations over time</div>
+                    </div>
+                    <div class="chart-container">
+                        <h4>Course Enrollment Trends</h4>
+                        <div class="chart-placeholder">Chart: Enrollments by course</div>
+                    </div>
+                    <div class="chart-container">
+                        <h4>Session Completion Rate</h4>
+                        <div class="chart-placeholder">Chart: Completed vs Scheduled</div>
+                    </div>
+                    <div class="chart-container">
+                        <h4>Average Ratings</h4>
+                        <div class="chart-placeholder">Chart: Ratings distribution</div>
+                    </div>
+                </div>
+                <div class="dashboard-section">
+                    <h3>Advanced Metrics</h3>
+                    <div class="analytics-grid">
+                        <div class="metric-card">
+                            <div class="metric-value" id="totalSessions">0</div>
+                            <div class="metric-label">Total Sessions</div>
+                            <div class="metric-change">+12% from last month</div>
+                        </div>
+                        <div class="metric-card" style="background: linear-gradient(135deg, #667eea, #764ba2);">
+                            <div class="metric-value" id="avgRating">0.0</div>
+                            <div class="metric-label">Average Rating</div>
+                            <div class="metric-change">Excellent</div>
+                        </div>
+                        <div class="metric-card" style="background: linear-gradient(135deg, #f093fb, #f5576c);">
+                            <div class="metric-value" id="completionRate">0%</div>
+                            <div class="metric-label">Completion Rate</div>
+                            <div class="metric-change">↑ +5% this week</div>
+                        </div>
+                        <div class="metric-card" style="background: linear-gradient(135deg, #4facfe, #00f2fe);">
+                            <div class="metric-value" id="activeUsers">0</div>
+                            <div class="metric-label">Active Users</div>
+                            <div class="metric-change">Last 7 days</div>
+                        </div>
+                    </div>
+                </div>
                 <div class="dashboard-section">
                     <h3>User Management</h3>
                     <div id="usersList"></div>
+                </div>
+            </section>
+
+            <!-- Notifications Section -->
+            <section id="notifications" class="section hidden">
+                <h2>Notifications</h2>
+                <div class="dashboard-section">
+                    <button class="btn btn-secondary" onclick="markAllNotificationsRead()">Mark All as Read</button>
+                    <div id="notificationsList" style="margin-top: 1rem;"></div>
                 </div>
             </section>
 

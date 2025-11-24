@@ -11,3 +11,6 @@ build/
 *.swp
 *.swo
 .pytest_cache/
+coverage/
+.coverage
+htmlcov/

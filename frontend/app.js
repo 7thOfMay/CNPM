@@ -117,10 +117,12 @@ function updateAuthUI() {
     const tutorDashLink = document.getElementById('tutorDashLink');
     const adminDashLink = document.getElementById('adminDashLink');
     const chatLink = document.getElementById('chatLink');
+    const notificationsLink = document.getElementById('notificationsLink');
     
     if (currentUser) {
         logoutBtn.classList.remove('hidden');
         chatLink.classList.remove('hidden');
+        notificationsLink.classList.remove('hidden');
         
         // Show role-specific dashboard link only
         if (currentUser.role === 'student') {
@@ -137,10 +139,14 @@ function updateAuthUI() {
             adminDashLink.classList.remove('hidden');
         }
         
-        // Start checking for unread messages
+        // Start checking for unread messages and notifications
         checkUnreadMessages();
+        loadNotifications();
         if (!chatRefreshInterval) {
-            chatRefreshInterval = setInterval(checkUnreadMessages, 10000);
+            chatRefreshInterval = setInterval(() => {
+                checkUnreadMessages();
+                loadNotifications();
+            }, 10000);
         }
     } else {
         logoutBtn.classList.add('hidden');
@@ -148,6 +154,7 @@ function updateAuthUI() {
         tutorDashLink.classList.add('hidden');
         adminDashLink.classList.add('hidden');
         chatLink.classList.add('hidden');
+        notificationsLink.classList.add('hidden');
         
         if (chatRefreshInterval) {
             clearInterval(chatRefreshInterval);
@@ -164,6 +171,53 @@ function getAuthHeaders() {
         };
     }
     return { 'Content-Type': 'application/json' };
+}
+
+// SSO Login Handler
+async function loginWithSSO() {
+    try {
+        // Step 1: Initiate SSO
+        const initiateResponse = await fetch(`${API_BASE_URL}/auth/sso/initiate?redirect_uri=${window.location.origin}`);
+        const initiateData = await initiateResponse.json();
+        
+        // Mock: Show dialog to simulate SSO login (in production, would redirect to HCMUT_SSO)
+        const mockEmail = prompt('Mock HCMUT SSO Login\n\nEnter your HCMUT email (or leave blank for random):', 'student@hcmut.edu.vn');
+        
+        if (mockEmail === null) {
+            // User cancelled
+            return;
+        }
+        
+        // Step 2: Exchange SSO token for JWT
+        const callbackResponse = await fetch(`${API_BASE_URL}/auth/sso/callback`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                sso_token: initiateData.sso_token,
+                email: mockEmail || undefined
+            })
+        });
+        
+        const callbackData = await callbackResponse.json();
+        
+        if (callbackResponse.ok) {
+            // Store token and user info
+            saveUserToStorage(callbackData.user, callbackData.token);
+            updateAuthUI();
+            
+            showMessage('loginMessage', `Welcome ${callbackData.user.username}! SSO login successful.`, 'success');
+            
+            // Navigate to appropriate dashboard
+            setTimeout(() => {
+                redirectToRoleDashboard();
+            }, 1000);
+        } else {
+            showMessage('loginMessage', callbackData.error || 'SSO authentication failed', 'error');
+        }
+    } catch (error) {
+        console.error('SSO login error:', error);
+        showMessage('loginMessage', 'SSO login failed. Please try again.', 'error');
+    }
 }
 
 // User Registration
@@ -264,6 +318,9 @@ function loadStudentDashboard() {
     }
     loadStudentCourses();
     loadEnrolledCourses();
+    loadStudentSchedule();
+    loadNotifications();
+    loadStudentResources();
 }
 
 async function loadStudentCourses() {
@@ -289,13 +346,16 @@ function displayStudentCourses(courses) {
     
     coursesList.innerHTML = courses.map(course => `
         <div class="course-card">
-            <h3>${course.title}</h3>
-            <p>Subject: ${course.subject}</p>
-            <span class="course-badge">${course.level}</span>
-            <p style="margin-top: 1rem;">Enrolled: ${course.enrolled} students</p>
-            <button class="btn btn-primary" onclick="enrollCourse(${course.id})" style="margin-top: 1rem;">
-                Enroll Now
-            </button>
+            <div class="course-card-header ${course.subject}"></div>
+            <div class="course-card-body">
+                <h3>${course.title}</h3>
+                <p>Subject: ${course.subject}</p>
+                <span class="course-badge">${course.level}</span>
+                <span class="course-badge">Enrolled: ${course.enrolled}</span>
+                <button class="btn btn-primary" onclick="enrollCourse(${course.id})" style="margin-top: 1rem; width: 100%;">
+                    Enroll Now
+                </button>
+            </div>
         </div>
     `).join('');
 }
@@ -353,6 +413,12 @@ async function handleCreateCourse(e) {
 
 function loadTutorDashboard() {
     loadTutorCourses();
+    setupCreateSessionForm();
+    loadTutorSessions();
+    loadTutorProgress();
+    loadNotifications();
+    setupCreateResourceForm();
+    loadTutorResources();
 }
 
 async function loadTutorCourses() {
@@ -366,10 +432,13 @@ async function loadTutorCourses() {
         if (data.courses && data.courses.length > 0) {
             tutorCoursesList.innerHTML = data.courses.map(course => `
                 <div class="course-card">
-                    <h3>${course.title}</h3>
-                    <p>Subject: ${course.subject}</p>
-                    <p>Level: ${course.level}</p>
-                    <p>Enrolled: ${course.enrolled} students</p>
+                    <div class="course-card-header ${course.subject}"></div>
+                    <div class="course-card-body">
+                        <h3>${course.title}</h3>
+                        <p>Subject: ${course.subject}</p>
+                        <span class="course-badge">${course.level}</span>
+                        <span class="course-badge">Enrolled: ${course.enrolled}</span>
+                    </div>
                 </div>
             `).join('');
         } else {
@@ -393,6 +462,12 @@ async function loadAdminStats() {
         });
         const data = await response.json();
         
+        // Update metric cards with enhanced data
+        document.getElementById('totalSessions').textContent = data.totalSessions || 0;
+        document.getElementById('avgRating').textContent = data.avgRating || 'N/A';
+        document.getElementById('completionRate').textContent = data.completionRate || 0;
+        document.getElementById('activeUsers').textContent = data.activeUsers || 0;
+        
         const adminStats = document.getElementById('adminStats');
         adminStats.innerHTML = `
             <div class="stat-card">
@@ -414,6 +489,14 @@ async function loadAdminStats() {
             <div class="stat-card">
                 <h3>${data.totalEnrollments}</h3>
                 <p>Total Enrollments</p>
+            </div>
+            <div class="stat-card">
+                <h3>${data.totalResources || 0}</h3>
+                <p>Resources</p>
+            </div>
+            <div class="stat-card">
+                <h3>${data.emailsSent || 0}</h3>
+                <p>Emails Sent</p>
             </div>
         `;
     } catch (error) {
@@ -551,19 +634,22 @@ function displayCourses(courses) {
     
     coursesList.innerHTML = courses.map(course => `
         <div class="course-card">
-            <h3>${course.title}</h3>
-            <p>Subject: ${course.subject}</p>
-            <span class="course-badge">${course.level}</span>
-            <p style="margin-top: 1rem;">Enrolled: ${course.enrolled} students</p>
-            ${isStudent ? `
-                <button class="btn btn-primary" onclick="enrollCourse(${course.id})" style="margin-top: 1rem;">
-                    Enroll Now
-                </button>
-            ` : `
-                <button class="btn btn-secondary" disabled style="margin-top: 1rem;">
-                    Students Only
-                </button>
-            `}
+            <div class="course-card-header ${course.subject}"></div>
+            <div class="course-card-body">
+                <h3>${course.title}</h3>
+                <p>Subject: ${course.subject}</p>
+                <span class="course-badge">${course.level}</span>
+                <span class="course-badge">Enrolled: ${course.enrolled}</span>
+                ${isStudent ? `
+                    <button class="btn btn-primary" onclick="enrollCourse(${course.id})" style="margin-top: 1rem; width: 100%;">
+                        Enroll Now
+                    </button>
+                ` : `
+                    <button class="btn btn-secondary" disabled style="margin-top: 1rem; width: 100%;">
+                        Students Only
+                    </button>
+                `}
+            </div>
         </div>
     `).join('');
 }
@@ -963,5 +1049,672 @@ async function checkUnreadMessages() {
     }
 }
 
+// ==================== SCHEDULE MANAGEMENT ====================
+async function loadStudentSchedule() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/sessions`, {
+            headers: getAuthHeaders()
+        });
+        const data = await response.json();
+        
+        const scheduleDiv = document.getElementById('studentSchedule');
+        if (data.sessions && data.sessions.length > 0) {
+            scheduleDiv.innerHTML = data.sessions.map(session => `
+                <div class="session-card">
+                    <div class="session-header">
+                        <div>
+                            <div class="session-title">${session.courseName}</div>
+                            <div style="color: var(--text-secondary); font-size: 0.9rem;">by ${session.tutorName}</div>
+                        </div>
+                        <span class="session-status ${session.status}">${session.status}</span>
+                    </div>
+                    <div class="session-meta">
+                        <span>Date: ${session.date}</span>
+                        <span>Time: ${session.startTime} - ${session.endTime}</span>
+                        <span>Location: ${session.location}</span>
+                        <span>Capacity: ${session.bookedStudents.length}/${session.maxStudents}</span>
+                    </div>
+                    ${session.description ? `<p style="color: var(--text-secondary); margin-bottom: 1rem;">${session.description}</p>` : ''}
+                    <div class="session-actions">
+                        ${session.bookedStudents.includes(currentUser.id) ? `
+                            <button class="btn btn-secondary" onclick="cancelBooking(${session.id})">Cancel Booking</button>
+                            <button class="btn btn-primary" onclick="rateSession(${session.id})">Rate Session</button>
+                        ` : `
+                            <button class="btn btn-primary" onclick="bookSession(${session.id})" ${session.bookedStudents.length >= session.maxStudents ? 'disabled' : ''}>
+                                ${session.bookedStudents.length >= session.maxStudents ? 'Fully Booked' : 'Book Session'}
+                            </button>
+                        `}
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            scheduleDiv.innerHTML = '<p>No sessions available. Enroll in courses to see available sessions.</p>';
+        }
+    } catch (error) {
+        console.error('Failed to load schedule:', error);
+    }
+}
+
+async function bookSession(sessionId) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/book`, {
+            method: 'POST',
+            headers: getAuthHeaders()
+        });
+        const data = await response.json();
+        
+        if (response.ok) {
+            alert('Session booked successfully!');
+            loadStudentSchedule();
+        } else {
+            alert(data.error || 'Failed to book session');
+        }
+    } catch (error) {
+        console.error('Failed to book session:', error);
+        alert('Network error. Please try again.');
+    }
+}
+
+async function cancelBooking(sessionId) {
+    if (!confirm('Are you sure you want to cancel this booking?')) return;
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/book`, {
+            method: 'DELETE',
+            headers: getAuthHeaders()
+        });
+        
+        if (response.ok) {
+            alert('Booking cancelled');
+            loadStudentSchedule();
+        }
+    } catch (error) {
+        console.error('Failed to cancel booking:', error);
+    }
+}
+
+// Tutor - Create Session
+async function setupCreateSessionForm() {
+    const form = document.getElementById('createSessionForm');
+    if (!form) return;
+    
+    // Load tutor courses into select
+    try {
+        const response = await fetch(`${API_BASE_URL}/tutor/courses`, {
+            headers: getAuthHeaders()
+        });
+        const data = await response.json();
+        
+        const select = document.getElementById('sessionCourse');
+        if (data.courses && data.courses.length > 0) {
+            select.innerHTML = data.courses.map(c => `
+                <option value="${c.id}">${c.title}</option>
+            `).join('');
+        } else {
+            select.innerHTML = '<option value="">Create a course first</option>';
+        }
+    } catch (error) {
+        console.error('Failed to load courses:', error);
+    }
+    
+    form.addEventListener('submit', handleCreateSession);
+}
+
+async function handleCreateSession(e) {
+    e.preventDefault();
+    
+    const courseId = document.getElementById('sessionCourse').value;
+    const date = document.getElementById('sessionDate').value;
+    const startTime = document.getElementById('sessionStartTime').value;
+    const endTime = document.getElementById('sessionEndTime').value;
+    const maxStudents = document.getElementById('sessionMaxStudents').value;
+    const location = document.getElementById('sessionLocation').value;
+    const description = document.getElementById('sessionDescription').value;
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/sessions`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ courseId, date, startTime, endTime, maxStudents, location, description })
+        });
+        const data = await response.json();
+        
+        if (response.ok) {
+            showMessage('createSessionMessage', 'Session created successfully!', 'success');
+            document.getElementById('createSessionForm').reset();
+            loadTutorSessions();
+        } else {
+            showMessage('createSessionMessage', data.error || 'Failed to create session', 'error');
+        }
+    } catch (error) {
+        showMessage('createSessionMessage', 'Network error', 'error');
+    }
+}
+
+async function loadTutorSessions() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/sessions`, {
+            headers: getAuthHeaders()
+        });
+        const data = await response.json();
+        
+        const sessionsDiv = document.getElementById('tutorSessionsList');
+        if (data.sessions && data.sessions.length > 0) {
+            sessionsDiv.innerHTML = data.sessions.map(session => `
+                <div class="session-card">
+                    <div class="session-header">
+                        <div>
+                            <div class="session-title">${session.courseName}</div>
+                        </div>
+                        <span class="session-status ${session.status}">${session.status}</span>
+                    </div>
+                    <div class="session-meta">
+                        <span>Date: ${session.date}</span>
+                        <span>Time: ${session.startTime} - ${session.endTime}</span>
+                        <span>Location: ${session.location}</span>
+                        <span>Capacity: ${session.bookedStudents.length}/${session.maxStudents} booked</span>
+                    </div>
+                    ${session.description ? `<p style="color: var(--text-secondary); margin-bottom: 1rem;">${session.description}</p>` : ''}
+                    <div class="session-actions">
+                        <button class="btn btn-secondary" onclick="deleteSession(${session.id})">Delete Session</button>
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            sessionsDiv.innerHTML = '<p>No sessions created yet.</p>';
+        }
+    } catch (error) {
+        console.error('Failed to load sessions:', error);
+    }
+}
+
+async function deleteSession(sessionId) {
+    if (!confirm('Are you sure? This will notify all booked students.')) return;
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}`, {
+            method: 'DELETE',
+            headers: getAuthHeaders()
+        });
+        
+        if (response.ok) {
+            alert('Session deleted');
+            loadTutorSessions();
+        }
+    } catch (error) {
+        console.error('Failed to delete session:', error);
+    }
+}
+
+// ==================== RATING & FEEDBACK ====================
+function rateSession(sessionId) {
+    const rating = prompt('Rate this session (1-5 stars):');
+    if (!rating || rating < 1 || rating > 5) return;
+    
+    const feedback = prompt('Optional feedback:');
+    
+    submitRating(sessionId, parseInt(rating), feedback);
+}
+
+async function submitRating(sessionId, rating, feedback) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/ratings`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ sessionId, rating, feedback })
+        });
+        const data = await response.json();
+        
+        if (response.ok) {
+            alert('Thank you for your feedback!');
+            loadStudentSchedule();
+        } else {
+            alert(data.error || 'Failed to submit rating');
+        }
+    } catch (error) {
+        console.error('Failed to submit rating:', error);
+    }
+}
+
+async function loadTutorProgress() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/tutor/courses`, {
+            headers: getAuthHeaders()
+        });
+        const data = await response.json();
+        
+        const progressDiv = document.getElementById('tutorProgressView');
+        if (!data.courses || data.courses.length === 0) {
+            progressDiv.innerHTML = '<p>No courses yet.</p>';
+            return;
+        }
+        
+        let html = '';
+        for (const course of data.courses) {
+            const progressResponse = await fetch(`${API_BASE_URL}/progress/course/${course.id}`, {
+                headers: getAuthHeaders()
+            });
+            const progressData = await progressResponse.json();
+            
+            html += `
+                <div style="margin-bottom: 2rem;">
+                    <h4 style="margin-bottom: 1rem;">${course.title}</h4>
+                    ${progressData.students && progressData.students.length > 0 ? `
+                        <table class="progress-table">
+                            <thead>
+                                <tr>
+                                    <th>Student</th>
+                                    <th>Sessions</th>
+                                    <th>Progress</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${progressData.students.map(s => {
+                                    const percent = s.totalSessions > 0 ? (s.completedSessions / s.totalSessions * 100).toFixed(0) : 0;
+                                    return `
+                                        <tr>
+                                            <td>${s.studentName}</td>
+                                            <td>${s.completedSessions} / ${s.totalSessions}</td>
+                                            <td>
+                                                <div class="progress-bar">
+                                                    <div class="progress-fill" style="width: ${percent}%"></div>
+                                                </div>
+                                                <span style="font-size: 0.85rem; color: var(--text-secondary);">${percent}%</span>
+                                            </td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    ` : '<p style="color: var(--text-secondary);">No student progress yet.</p>'}
+                </div>
+            `;
+        }
+        progressDiv.innerHTML = html;
+    } catch (error) {
+        console.error('Failed to load progress:', error);
+    }
+}
+
+// ==================== NOTIFICATIONS ====================
+async function loadNotifications() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/notifications`, {
+            headers: getAuthHeaders()
+        });
+        const data = await response.json();
+        
+        const badge = document.getElementById('notificationBadge');
+        if (data.unreadCount > 0) {
+            badge.textContent = data.unreadCount;
+            badge.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+        }
+        
+        const listDiv = document.getElementById('notificationsList');
+        if (data.notifications && data.notifications.length > 0) {
+            listDiv.innerHTML = data.notifications.map(n => `
+                <div class="notification-item ${n.read ? '' : 'unread'}" onclick="markNotificationRead(${n.id})">
+                    <div class="notification-header">
+                        <div class="notification-title">${n.title}</div>
+                        <div class="notification-time">${new Date(n.createdAt).toLocaleString()}</div>
+                    </div>
+                    <div class="notification-message">${n.message}</div>
+                </div>
+            `).join('');
+        } else {
+            listDiv.innerHTML = '<p>No notifications</p>';
+        }
+    } catch (error) {
+        console.error('Failed to load notifications:', error);
+    }
+}
+
+async function markNotificationRead(notificationId) {
+    try {
+        await fetch(`${API_BASE_URL}/notifications/${notificationId}/read`, {
+            method: 'PUT',
+            headers: getAuthHeaders()
+        });
+        loadNotifications();
+    } catch (error) {
+        console.error('Failed to mark notification as read:', error);
+    }
+}
+
+async function markAllNotificationsRead() {
+    try {
+        await fetch(`${API_BASE_URL}/notifications/read-all`, {
+            method: 'PUT',
+            headers: getAuthHeaders()
+        });
+        loadNotifications();
+    } catch (error) {
+        console.error('Failed to mark all as read:', error);
+    }
+}
+
+// ==================== AI TUTOR MATCHING ====================
+async function loadRecommendedTutors() {
+    const subject = document.getElementById('matchSubjectFilter').value;
+    const level = document.getElementById('matchLevelFilter').value;
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/match/tutors?subject=${subject}&level=${level}`, {
+            headers: getAuthHeaders()
+        });
+        const data = await response.json();
+        
+        const listDiv = document.getElementById('recommendedTutorsList');
+        if (data.tutors && data.tutors.length > 0) {
+            listDiv.innerHTML = data.tutors.map(tutor => `
+                <div class="tutor-card">
+                    <div class="tutor-header">
+                        <div class="tutor-info">
+                            <h4>${tutor.tutorName}</h4>
+                            <p style="color: var(--text-secondary); font-size: 0.9rem;">${tutor.tutorEmail}</p>
+                            ${tutor.totalRatings > 0 ? `
+                                <div class="tutor-rating">
+                                    <span>Rating: ${tutor.averageRating}</span>
+                                    <span style="color: var(--text-secondary); font-weight: normal;">(${tutor.totalRatings} reviews)</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                        <div class="match-score">
+                            Match: ${tutor.matchScore}%
+                        </div>
+                    </div>
+                    ${tutor.courses && tutor.courses.length > 0 ? `
+                        <div class="tutor-courses">
+                            ${tutor.courses.map(c => `
+                                <span class="course-badge">${c.subject} - ${c.level}</span>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+        } else {
+            listDiv.innerHTML = '<p>No tutors found matching your criteria.</p>';
+        }
+    } catch (error) {
+        console.error('Failed to load recommended tutors:', error);
+    }
+}
+
+// Check notifications periodically
+setInterval(() => {
+    if (currentUser) {
+        loadNotifications();
+    }
+}, 30000);
+
+// Calendar View State
+let calendarViewVisible = false;
+let currentCalendarMonth = new Date();
+
+// ==================== CALENDAR VIEW ====================
+function toggleCalendarView() {
+    calendarViewVisible = !calendarViewVisible;
+    const calendarDiv = document.getElementById('calendarView');
+    const scheduleDiv = document.getElementById('studentSchedule');
+    const toggleText = document.getElementById('viewToggleText');
+    
+    if (calendarViewVisible) {
+        calendarDiv.classList.remove('hidden');
+        scheduleDiv.classList.add('hidden');
+        toggleText.textContent = 'List View';
+        renderCalendar();
+    } else {
+        calendarDiv.classList.add('hidden');
+        scheduleDiv.classList.remove('hidden');
+        toggleText.textContent = 'Calendar View';
+    }
+}
+
+async function renderCalendar() {
+    const calendarDiv = document.getElementById('calendarView');
+    
+    // Get sessions data
+    let sessionsData = [];
+    try {
+        const response = await fetch(`${API_BASE_URL}/sessions`, {
+            headers: getAuthHeaders()
+        });
+        const data = await response.json();
+        sessionsData = data.sessions || [];
+    } catch (error) {
+        console.error('Failed to load sessions for calendar:', error);
+    }
+    
+    const year = currentCalendarMonth.getFullYear();
+    const month = currentCalendarMonth.getMonth();
+    
+    // Get first and last day of month
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDayOfWeek = firstDay.getDay();
+    
+    // Get previous month's last days
+    const prevMonthLastDay = new Date(year, month, 0).getDate();
+    
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                       'July', 'August', 'September', 'October', 'November', 'December'];
+    
+    let html = `
+        <div class="calendar-header">
+            <div class="calendar-nav">
+                <button onclick="previousMonth()">◀ Prev</button>
+                <button onclick="goToToday()">Today</button>
+                <button onclick="nextMonth()">Next ▶</button>
+            </div>
+            <div class="calendar-month">${monthNames[month]} ${year}</div>
+        </div>
+        <div class="calendar-grid">
+            <div class="calendar-day-header">Sun</div>
+            <div class="calendar-day-header">Mon</div>
+            <div class="calendar-day-header">Tue</div>
+            <div class="calendar-day-header">Wed</div>
+            <div class="calendar-day-header">Thu</div>
+            <div class="calendar-day-header">Fri</div>
+            <div class="calendar-day-header">Sat</div>
+    `;
+    
+    // Add previous month's days
+    for (let i = startingDayOfWeek - 1; i >= 0; i--) {
+        const day = prevMonthLastDay - i;
+        html += `<div class="calendar-day other-month"><div class="calendar-day-number">${day}</div></div>`;
+    }
+    
+    // Add current month's days
+    const today = new Date();
+    const todayDate = today.getDate();
+    const todayMonth = today.getMonth();
+    const todayYear = today.getFullYear();
+    
+    for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const isToday = (day === todayDate && month === todayMonth && year === todayYear);
+        
+        // Find sessions for this day
+        const daySessions = sessionsData.filter(s => s.date === dateStr);
+        
+        html += `
+            <div class="calendar-day ${isToday ? 'today' : ''}" onclick="viewDaySessions('${dateStr}')">
+                <div class="calendar-day-number">${day}</div>
+                ${daySessions.map(session => {
+                    const isBooked = session.bookedStudents && session.bookedStudents.includes(currentUser.id);
+                    return `<div class="calendar-event ${isBooked ? 'booked' : ''}" title="${session.courseName} - ${session.startTime}">${session.startTime} ${session.courseName}</div>`;
+                }).join('')}
+            </div>
+        `;
+    }
+    
+    // Add next month's days
+    const remainingDays = 42 - (startingDayOfWeek + daysInMonth);
+    for (let day = 1; day <= remainingDays; day++) {
+        html += `<div class="calendar-day other-month"><div class="calendar-day-number">${day}</div></div>`;
+    }
+    
+    html += '</div>';
+    calendarDiv.innerHTML = html;
+}
+
+function previousMonth() {
+    currentCalendarMonth.setMonth(currentCalendarMonth.getMonth() - 1);
+    renderCalendar();
+}
+
+function nextMonth() {
+    currentCalendarMonth.setMonth(currentCalendarMonth.getMonth() + 1);
+    renderCalendar();
+}
+
+function goToToday() {
+    currentCalendarMonth = new Date();
+    renderCalendar();
+}
+
+function viewDaySessions(dateStr) {
+    alert(`View sessions for ${dateStr}`);
+    // Could open a modal with detailed sessions for this day
+}
+
+// ==================== RESOURCE MANAGEMENT ====================
+// Student - Load resources
+async function loadStudentResources() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/resources`, {
+            headers: getAuthHeaders()
+        });
+        const data = await response.json();
+        
+        const listDiv = document.getElementById('studentResourcesList');
+        if (data.resources && data.resources.length > 0) {
+            listDiv.innerHTML = data.resources.map(resource => renderResourceItem(resource, false)).join('');
+        } else {
+            listDiv.innerHTML = '<p>No resources available yet.</p>';
+        }
+    } catch (error) {
+        console.error('Failed to load resources:', error);
+    }
+}
+
+// Tutor - Setup resource form
+async function setupCreateResourceForm() {
+    const form = document.getElementById('createResourceForm');
+    if (!form) return;
+    
+    // Load courses into select
+    try {
+        const response = await fetch(`${API_BASE_URL}/tutor/courses`, {
+            headers: getAuthHeaders()
+        });
+        const data = await response.json();
+        
+        const select = document.getElementById('resourceCourse');
+        let html = '<option value="">Public (All users)</option>';
+        if (data.courses && data.courses.length > 0) {
+            html += data.courses.map(c => `<option value="${c.id}">${c.title}</option>`).join('');
+        }
+        select.innerHTML = html;
+    } catch (error) {
+        console.error('Failed to load courses:', error);
+    }
+    
+    form.addEventListener('submit', handleCreateResource);
+}
+
+async function handleCreateResource(e) {
+    e.preventDefault();
+    
+    const courseId = document.getElementById('resourceCourse').value;
+    const title = document.getElementById('resourceTitle').value;
+    const type = document.getElementById('resourceType').value;
+    const url = document.getElementById('resourceUrl').value;
+    const description = document.getElementById('resourceDescription').value;
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/resources`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ title, type, url, description, courseId: courseId || null })
+        });
+        const data = await response.json();
+        
+        if (response.ok) {
+            showMessage('createResourceMessage', 'Resource added successfully!', 'success');
+            document.getElementById('createResourceForm').reset();
+            loadTutorResources();
+        } else {
+            showMessage('createResourceMessage', data.error || 'Failed to add resource', 'error');
+        }
+    } catch (error) {
+        showMessage('createResourceMessage', 'Network error', 'error');
+    }
+}
+
+async function loadTutorResources() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/resources`, {
+            headers: getAuthHeaders()
+        });
+        const data = await response.json();
+        
+        const listDiv = document.getElementById('tutorResourcesList');
+        if (data.resources && data.resources.length > 0) {
+            listDiv.innerHTML = data.resources.map(resource => renderResourceItem(resource, true)).join('');
+        } else {
+            listDiv.innerHTML = '<p>No resources added yet.</p>';
+        }
+    } catch (error) {
+        console.error('Failed to load resources:', error);
+    }
+}
+
+function renderResourceItem(resource, showActions) {
+    const icons = {
+        pdf: 'PDF',
+        video: 'VIDEO',
+        link: 'LINK',
+        document: 'DOC'
+    };
+    
+    return `
+        <div class="resource-item">
+            <div class="resource-info">
+                <div class="resource-icon">${icons[resource.type] || 'FILE'}</div>
+                <div class="resource-details">
+                    <h4>${resource.title}</h4>
+                    <p>${resource.description || 'No description'} • Uploaded by ${resource.uploaderName} (${resource.uploaderRole})</p>
+                </div>
+            </div>
+            <div class="resource-actions">
+                ${resource.url ? `<a href="${resource.url}" target="_blank" class="btn btn-primary">Open</a>` : ''}
+                ${showActions ? `<button class="btn btn-secondary" onclick="deleteResource(${resource.id})">Delete</button>` : ''}
+            </div>
+        </div>
+    `;
+}
+
+async function deleteResource(resourceId) {
+    if (!confirm('Delete this resource?')) return;
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/resources/${resourceId}`, {
+            method: 'DELETE',
+            headers: getAuthHeaders()
+        });
+        
+        if (response.ok) {
+            loadTutorResources();
+        }
+    } catch (error) {
+        console.error('Failed to delete resource:', error);
+    }
+}
+
 // Refresh health status periodically
 setInterval(checkSystemHealth, 30000);
+

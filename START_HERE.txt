@@ -1,0 +1,59 @@
+====================================
+  TUTORPRO - QUICK START GUIDE
+====================================
+
+To start the application, simply double-click one of these files:
+
+1. start.bat       - For Command Prompt (simple)
+2. start.ps1       - For PowerShell (advanced with checks)
+
+The script will automatically:
+- Start Backend Server (port 3000)
+- Start AI Service (port 5000)  
+- Start Frontend Server (port 8080)
+- Open your web browser to http://localhost:8080
+
+====================================
+  STOPPING THE APPLICATION
+====================================
+
+To stop all services:
+- If using start.bat: Press any key in the main window
+- If using start.ps1: Close all the service windows
+
+====================================
+  MANUAL START (if scripts don't work)
+====================================
+
+Open 3 separate terminals and run:
+
+Terminal 1 - Backend:
+  cd backend
+  node src/index.js
+
+Terminal 2 - AI Service:
+  cd ai-service
+  python app.py
+
+Terminal 3 - Frontend:
+  cd frontend
+  python -m http.server 8080
+
+Then open browser to: http://localhost:8080
+
+====================================
+  REQUIREMENTS
+====================================
+
+- Node.js (for backend)
+- Python 3.x (for AI service and frontend)
+- pip packages: flask, flask-cors (install via: pip install -r ai-service/requirements.txt)
+
+====================================
+  DEFAULT ADMIN ACCOUNT
+====================================
+
+Email: admin@tutorpro.com
+Password: admin123
+
+====================================

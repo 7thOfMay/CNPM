@@ -22,7 +22,7 @@ const users = [
         id: 1,
         username: 'admin',
         email: 'admin@tutorpro.com',
-        password: '$2a$10$8K1p/a0dL3.I7KU.PvzP3eZ9zqGzM5vO4qJ9R1Xw9QC1qKfE8rZHm',
+        password: '$2a$10$a/7gYlRcekT5S3fQzgPc9uqhZ6b9BQjYampHyNLia6R.TyejOSZKS',
         role: 'admin',
         createdAt: new Date().toISOString()
     }
@@ -33,6 +33,46 @@ const courses = [
     { id: 3, title: 'Web Development Basics', subject: 'programming', level: 'beginner', enrolled: 0, tutorId: null, enrolledStudents: [] },
     { id: 4, title: 'Data Structures', subject: 'programming', level: 'intermediate', enrolled: 0, tutorId: null, enrolledStudents: [] }
 ];
+
+// Sessions/Schedule Management
+const sessions = [];
+let sessionIdCounter = 1;
+
+// Ratings & Feedback
+const ratings = [];
+let ratingIdCounter = 1;
+
+// Notifications
+const notifications = [];
+let notificationIdCounter = 1;
+
+// Progress tracking
+const progressRecords = [];
+
+// SSO Mock - simulate HCMUT_SSO
+const ssoTokens = {}; // Map: ssoToken -> userId
+let ssoTokenCounter = 1;
+
+// Resources/Learning Materials
+const resources = [];
+let resourceIdCounter = 1;
+
+// Email logs (Mock)
+const emailLogs = [];
+
+// Mock email service
+function sendEmail(to, subject, body) {
+    const email = {
+        to,
+        subject,
+        body,
+        sentAt: new Date().toISOString(),
+        status: 'sent'
+    };
+    emailLogs.push(email);
+    console.log(`Email sent to ${to}: ${subject}`);
+    return email;
+}
 
 // Health check
 app.get('/health', (req, res) => {
@@ -146,6 +186,20 @@ app.get('/api/users', authMiddleware, requireRole('admin'), (req, res) => {
 });
 
 app.get('/api/admin/stats', authMiddleware, requireRole('admin'), (req, res) => {
+    // Session metrics
+    const totalSessions = sessions.length;
+    const completedSessions = sessions.filter(s => s.status === 'completed').length;
+    const completionRate = totalSessions > 0 ? ((completedSessions / totalSessions) * 100).toFixed(1) : 0;
+    
+    // Rating metrics
+    const avgRating = ratings.length > 0 ? (ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length).toFixed(1) : 0;
+    
+    // Active users (users with activity in last 7 days)
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const activeUsers = users.filter(u => 
+        notifications.some(n => n.userId === u.id && new Date(n.createdAt) > sevenDaysAgo)
+    ).length;
+    
     const stats = {
         totalUsers: users.length,
         totalCourses: courses.length,
@@ -154,7 +208,15 @@ app.get('/api/admin/stats', authMiddleware, requireRole('admin'), (req, res) => 
             tutors: users.filter(u => u.role === 'tutor').length,
             admins: users.filter(u => u.role === 'admin').length
         },
-        totalEnrollments: courses.reduce((sum, c) => sum + c.enrolled, 0)
+        totalEnrollments: courses.reduce((sum, c) => sum + c.enrolled, 0),
+        totalSessions: totalSessions,
+        completedSessions: completedSessions,
+        completionRate: parseFloat(completionRate),
+        avgRating: parseFloat(avgRating),
+        activeUsers: activeUsers,
+        totalResources: resources.length,
+        totalNotifications: notifications.length,
+        emailsSent: emailLogs.length
     };
     res.json(stats);
 });
@@ -430,6 +492,802 @@ app.post('/api/tutoring/recommendations', authMiddleware, requireRole('student')
     } catch (error) {
         console.error('AI service error:', error.message);
         res.status(503).json({ error: 'AI service unavailable' });
+    }
+});
+
+// ==================== SCHEDULE MANAGEMENT ====================
+// Create a tutoring session
+app.post('/api/sessions', authMiddleware, requireRole('tutor'), (req, res) => {
+    try {
+        const { courseId, date, startTime, endTime, maxStudents = 10, location, description } = req.body;
+        
+        if (!courseId || !date || !startTime || !endTime) {
+            return res.status(400).json({ error: 'Course, date, start time, and end time are required' });
+        }
+        
+        const course = courses.find(c => c.id === parseInt(courseId));
+        if (!course) {
+            return res.status(404).json({ error: 'Course not found' });
+        }
+        
+        if (course.tutorId && course.tutorId !== req.user.id) {
+            return res.status(403).json({ error: 'You can only create sessions for your own courses' });
+        }
+        
+        const session = {
+            id: sessionIdCounter++,
+            courseId: parseInt(courseId),
+            tutorId: req.user.id,
+            tutorName: req.user.username,
+            courseName: course.title,
+            date,
+            startTime,
+            endTime,
+            maxStudents,
+            location: location || 'Online',
+            description: description || '',
+            bookedStudents: [],
+            status: 'scheduled',
+            createdAt: new Date().toISOString()
+        };
+        
+        sessions.push(session);
+        
+        // Create notification for enrolled students
+        course.enrolledStudents.forEach(studentId => {
+            createNotification(
+                studentId,
+                'New Session Available',
+                `New session for "${course.title}" on ${date} at ${startTime}`,
+                'session',
+                session.id
+            );
+        });
+        
+        res.status(201).json({ session });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get all sessions (with filters)
+app.get('/api/sessions', authMiddleware, (req, res) => {
+    try {
+        const { courseId, date, status } = req.query;
+        let filtered = sessions;
+        
+        if (courseId) {
+            filtered = filtered.filter(s => s.courseId === parseInt(courseId));
+        }
+        
+        if (date) {
+            filtered = filtered.filter(s => s.date === date);
+        }
+        
+        if (status) {
+            filtered = filtered.filter(s => s.status === status);
+        }
+        
+        // Filter based on user role
+        if (req.user.role === 'tutor') {
+            filtered = filtered.filter(s => s.tutorId === req.user.id);
+        } else if (req.user.role === 'student') {
+            // Show sessions for enrolled courses
+            const enrolledCourseIds = courses
+                .filter(c => c.enrolledStudents.includes(req.user.id))
+                .map(c => c.id);
+            filtered = filtered.filter(s => enrolledCourseIds.includes(s.courseId));
+        }
+        
+        res.json({ sessions: filtered });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Book a session (student)
+app.post('/api/sessions/:id/book', authMiddleware, requireRole('student'), (req, res) => {
+    try {
+        const sessionId = parseInt(req.params.id);
+        const session = sessions.find(s => s.id === sessionId);
+        
+        if (!session) {
+            return res.status(404).json({ error: 'Session not found' });
+        }
+        
+        if (session.status !== 'scheduled') {
+            return res.status(400).json({ error: 'Session is not available for booking' });
+        }
+        
+        const course = courses.find(c => c.id === session.courseId);
+        if (!course.enrolledStudents.includes(req.user.id)) {
+            return res.status(403).json({ error: 'You must be enrolled in the course to book this session' });
+        }
+        
+        if (session.bookedStudents.includes(req.user.id)) {
+            return res.status(400).json({ error: 'You have already booked this session' });
+        }
+        
+        if (session.bookedStudents.length >= session.maxStudents) {
+            return res.status(400).json({ error: 'Session is fully booked' });
+        }
+        
+        session.bookedStudents.push(req.user.id);
+        
+        // Create notification for tutor
+        createNotification(
+            session.tutorId,
+            'New Session Booking',
+            `${req.user.username} booked your session on ${session.date}`,
+            'booking',
+            session.id
+        );
+        
+        res.json({ message: 'Session booked successfully', session });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Cancel booking (student)
+app.delete('/api/sessions/:id/book', authMiddleware, requireRole('student'), (req, res) => {
+    try {
+        const sessionId = parseInt(req.params.id);
+        const session = sessions.find(s => s.id === sessionId);
+        
+        if (!session) {
+            return res.status(404).json({ error: 'Session not found' });
+        }
+        
+        const index = session.bookedStudents.indexOf(req.user.id);
+        if (index === -1) {
+            return res.status(400).json({ error: 'You have not booked this session' });
+        }
+        
+        session.bookedStudents.splice(index, 1);
+        
+        // Notify tutor
+        createNotification(
+            session.tutorId,
+            'Booking Cancelled',
+            `${req.user.username} cancelled booking for session on ${session.date}`,
+            'cancellation',
+            session.id
+        );
+        
+        res.json({ message: 'Booking cancelled successfully' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Update session (tutor)
+app.put('/api/sessions/:id', authMiddleware, requireRole('tutor'), (req, res) => {
+    try {
+        const sessionId = parseInt(req.params.id);
+        const session = sessions.find(s => s.id === sessionId);
+        
+        if (!session) {
+            return res.status(404).json({ error: 'Session not found' });
+        }
+        
+        if (session.tutorId !== req.user.id) {
+            return res.status(403).json({ error: 'You can only update your own sessions' });
+        }
+        
+        const { date, startTime, endTime, maxStudents, location, description, status } = req.body;
+        
+        if (date) session.date = date;
+        if (startTime) session.startTime = startTime;
+        if (endTime) session.endTime = endTime;
+        if (maxStudents) session.maxStudents = maxStudents;
+        if (location) session.location = location;
+        if (description !== undefined) session.description = description;
+        if (status) session.status = status;
+        
+        // Notify all booked students
+        session.bookedStudents.forEach(studentId => {
+            createNotification(
+                studentId,
+                'Session Updated',
+                `Session "${session.courseName}" on ${session.date} has been updated`,
+                'update',
+                session.id
+            );
+        });
+        
+        res.json({ message: 'Session updated successfully', session });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Delete session (tutor)
+app.delete('/api/sessions/:id', authMiddleware, requireRole('tutor'), (req, res) => {
+    try {
+        const sessionId = parseInt(req.params.id);
+        const sessionIndex = sessions.findIndex(s => s.id === sessionId);
+        
+        if (sessionIndex === -1) {
+            return res.status(404).json({ error: 'Session not found' });
+        }
+        
+        const session = sessions[sessionIndex];
+        
+        if (session.tutorId !== req.user.id) {
+            return res.status(403).json({ error: 'You can only delete your own sessions' });
+        }
+        
+        // Notify all booked students
+        session.bookedStudents.forEach(studentId => {
+            createNotification(
+                studentId,
+                'Session Cancelled',
+                `Session "${session.courseName}" on ${session.date} has been cancelled`,
+                'cancellation',
+                session.id
+            );
+        });
+        
+        sessions.splice(sessionIndex, 1);
+        
+        res.json({ message: 'Session deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ==================== RATING & FEEDBACK ====================
+// Submit rating for a session
+app.post('/api/ratings', authMiddleware, requireRole('student'), (req, res) => {
+    try {
+        const { sessionId, rating, feedback } = req.body;
+        
+        if (!sessionId || !rating) {
+            return res.status(400).json({ error: 'Session ID and rating are required' });
+        }
+        
+        if (rating < 1 || rating > 5) {
+            return res.status(400).json({ error: 'Rating must be between 1 and 5' });
+        }
+        
+        const session = sessions.find(s => s.id === parseInt(sessionId));
+        if (!session) {
+            return res.status(404).json({ error: 'Session not found' });
+        }
+        
+        if (!session.bookedStudents.includes(req.user.id)) {
+            return res.status(403).json({ error: 'You can only rate sessions you attended' });
+        }
+        
+        // Check if already rated
+        const existingRating = ratings.find(r => r.sessionId === parseInt(sessionId) && r.studentId === req.user.id);
+        if (existingRating) {
+            return res.status(400).json({ error: 'You have already rated this session' });
+        }
+        
+        const newRating = {
+            id: ratingIdCounter++,
+            sessionId: parseInt(sessionId),
+            studentId: req.user.id,
+            studentName: req.user.username,
+            tutorId: session.tutorId,
+            courseId: session.courseId,
+            rating,
+            feedback: feedback || '',
+            createdAt: new Date().toISOString()
+        };
+        
+        ratings.push(newRating);
+        
+        // Record progress
+        recordProgress(req.user.id, session.courseId, session.id, 'completed');
+        
+        // Notify tutor
+        createNotification(
+            session.tutorId,
+            'New Rating Received',
+            `${req.user.username} rated your session ${rating}/5`,
+            'rating',
+            newRating.id
+        );
+        
+        res.status(201).json({ rating: newRating });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get ratings for a tutor
+app.get('/api/ratings/tutor/:tutorId', authMiddleware, (req, res) => {
+    try {
+        const tutorId = parseInt(req.params.tutorId);
+        const tutorRatings = ratings.filter(r => r.tutorId === tutorId);
+        
+        const avgRating = tutorRatings.length > 0
+            ? tutorRatings.reduce((sum, r) => sum + r.rating, 0) / tutorRatings.length
+            : 0;
+        
+        res.json({
+            ratings: tutorRatings,
+            averageRating: avgRating.toFixed(2),
+            totalRatings: tutorRatings.length
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get ratings for a course
+app.get('/api/ratings/course/:courseId', authMiddleware, (req, res) => {
+    try {
+        const courseId = parseInt(req.params.courseId);
+        const courseRatings = ratings.filter(r => r.courseId === courseId);
+        
+        const avgRating = courseRatings.length > 0
+            ? courseRatings.reduce((sum, r) => sum + r.rating, 0) / courseRatings.length
+            : 0;
+        
+        res.json({
+            ratings: courseRatings,
+            averageRating: avgRating.toFixed(2),
+            totalRatings: courseRatings.length
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ==================== NOTIFICATION SYSTEM ====================
+// Helper function to create notification
+function createNotification(userId, title, message, type, relatedId = null) {
+    const notification = {
+        id: notificationIdCounter++,
+        userId,
+        title,
+        message,
+        type,
+        relatedId,
+        read: false,
+        createdAt: new Date().toISOString()
+    };
+    notifications.push(notification);
+    
+    // Send email notification
+    const user = users.find(u => u.id === userId);
+    if (user && user.email) {
+        sendEmail(user.email, title, message);
+    }
+    
+    return notification;
+}
+
+// Get user notifications
+app.get('/api/notifications', authMiddleware, (req, res) => {
+    try {
+        const userNotifications = notifications
+            .filter(n => n.userId === req.user.id)
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        
+        const unreadCount = userNotifications.filter(n => !n.read).length;
+        
+        res.json({
+            notifications: userNotifications,
+            unreadCount
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Mark notification as read
+app.put('/api/notifications/:id/read', authMiddleware, (req, res) => {
+    try {
+        const notificationId = parseInt(req.params.id);
+        const notification = notifications.find(n => n.id === notificationId);
+        
+        if (!notification) {
+            return res.status(404).json({ error: 'Notification not found' });
+        }
+        
+        if (notification.userId !== req.user.id) {
+            return res.status(403).json({ error: 'Unauthorized' });
+        }
+        
+        notification.read = true;
+        
+        res.json({ notification });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Mark all notifications as read
+app.put('/api/notifications/read-all', authMiddleware, (req, res) => {
+    try {
+        notifications
+            .filter(n => n.userId === req.user.id && !n.read)
+            .forEach(n => n.read = true);
+        
+        res.json({ message: 'All notifications marked as read' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Delete notification
+app.delete('/api/notifications/:id', authMiddleware, (req, res) => {
+    try {
+        const notificationId = parseInt(req.params.id);
+        const notificationIndex = notifications.findIndex(n => n.id === notificationId);
+        
+        if (notificationIndex === -1) {
+            return res.status(404).json({ error: 'Notification not found' });
+        }
+        
+        const notification = notifications[notificationIndex];
+        
+        if (notification.userId !== req.user.id) {
+            return res.status(403).json({ error: 'Unauthorized' });
+        }
+        
+        notifications.splice(notificationIndex, 1);
+        
+        res.json({ message: 'Notification deleted' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ==================== PROGRESS TRACKING ====================
+// Helper function to record progress
+function recordProgress(studentId, courseId, sessionId, status) {
+    const existing = progressRecords.find(
+        p => p.studentId === studentId && p.courseId === courseId && p.sessionId === sessionId
+    );
+    
+    if (existing) {
+        existing.status = status;
+        existing.updatedAt = new Date().toISOString();
+    } else {
+        progressRecords.push({
+            studentId,
+            courseId,
+            sessionId,
+            status,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        });
+    }
+}
+
+// Get student progress
+app.get('/api/progress/student/:studentId', authMiddleware, (req, res) => {
+    try {
+        const studentId = parseInt(req.params.studentId);
+        
+        // Only student themselves or admin can view
+        if (req.user.role !== 'admin' && req.user.id !== studentId) {
+            return res.status(403).json({ error: 'Unauthorized' });
+        }
+        
+        const studentProgress = progressRecords.filter(p => p.studentId === studentId);
+        
+        // Group by course
+        const progressByCourse = {};
+        studentProgress.forEach(p => {
+            if (!progressByCourse[p.courseId]) {
+                const course = courses.find(c => c.id === p.courseId);
+                progressByCourse[p.courseId] = {
+                    courseId: p.courseId,
+                    courseName: course ? course.title : 'Unknown',
+                    totalSessions: 0,
+                    completedSessions: 0,
+                    sessions: []
+                };
+            }
+            
+            progressByCourse[p.courseId].totalSessions++;
+            if (p.status === 'completed') {
+                progressByCourse[p.courseId].completedSessions++;
+            }
+            progressByCourse[p.courseId].sessions.push(p);
+        });
+        
+        res.json({
+            studentId,
+            progress: Object.values(progressByCourse)
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get course progress (for tutors)
+app.get('/api/progress/course/:courseId', authMiddleware, requireRole('tutor', 'admin'), (req, res) => {
+    try {
+        const courseId = parseInt(req.params.courseId);
+        const course = courses.find(c => c.id === courseId);
+        
+        if (!course) {
+            return res.status(404).json({ error: 'Course not found' });
+        }
+        
+        if (req.user.role === 'tutor' && course.tutorId !== req.user.id) {
+            return res.status(403).json({ error: 'You can only view progress for your own courses' });
+        }
+        
+        const courseProgress = progressRecords.filter(p => p.courseId === courseId);
+        
+        // Group by student
+        const progressByStudent = {};
+        courseProgress.forEach(p => {
+            if (!progressByStudent[p.studentId]) {
+                const student = users.find(u => u.id === p.studentId);
+                progressByStudent[p.studentId] = {
+                    studentId: p.studentId,
+                    studentName: student ? student.username : 'Unknown',
+                    totalSessions: 0,
+                    completedSessions: 0
+                };
+            }
+            
+            progressByStudent[p.studentId].totalSessions++;
+            if (p.status === 'completed') {
+                progressByStudent[p.studentId].completedSessions++;
+            }
+        });
+        
+        res.json({
+            courseId,
+            courseName: course.title,
+            students: Object.values(progressByStudent)
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ==================== AI-BASED TUTOR MATCHING ====================
+// Get recommended tutors for a student
+app.get('/api/match/tutors', authMiddleware, requireRole('student'), (req, res) => {
+    try {
+        const { subject, level } = req.query;
+        
+        // Get all tutors
+        const tutors = users.filter(u => u.role === 'tutor');
+        
+        // Get tutor courses and ratings
+        const tutorData = tutors.map(tutor => {
+            const tutorCourses = courses.filter(c => c.tutorId === tutor.id);
+            const tutorRatings = ratings.filter(r => r.tutorId === tutor.id);
+            const avgRating = tutorRatings.length > 0
+                ? tutorRatings.reduce((sum, r) => sum + r.rating, 0) / tutorRatings.length
+                : 0;
+            
+            let matchScore = 0;
+            
+            // Score based on subject match
+            if (subject) {
+                const hasSubject = tutorCourses.some(c => c.subject === subject);
+                if (hasSubject) matchScore += 40;
+            }
+            
+            // Score based on level match
+            if (level) {
+                const hasLevel = tutorCourses.some(c => c.level === level);
+                if (hasLevel) matchScore += 30;
+            }
+            
+            // Score based on rating
+            matchScore += avgRating * 6;
+            
+            return {
+                tutorId: tutor.id,
+                tutorName: tutor.username,
+                tutorEmail: tutor.email,
+                courses: tutorCourses.map(c => ({
+                    id: c.id,
+                    title: c.title,
+                    subject: c.subject,
+                    level: c.level
+                })),
+                averageRating: avgRating.toFixed(2),
+                totalRatings: tutorRatings.length,
+                matchScore: matchScore.toFixed(2)
+            };
+        });
+        
+        // Sort by match score
+        tutorData.sort((a, b) => b.matchScore - a.matchScore);
+        
+        res.json({ tutors: tutorData });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ==================== RESOURCE MANAGEMENT ====================
+// Upload/Create a resource (Tutor/Admin)
+app.post('/api/resources', authMiddleware, requireRole('tutor', 'admin'), (req, res) => {
+    try {
+        const { title, description, type, url, courseId } = req.body;
+        
+        if (!title || !type) {
+            return res.status(400).json({ error: 'Title and type are required' });
+        }
+        
+        if (courseId) {
+            const course = courses.find(c => c.id === parseInt(courseId));
+            if (!course) {
+                return res.status(404).json({ error: 'Course not found' });
+            }
+            
+            if (req.user.role === 'tutor' && course.tutorId !== req.user.id) {
+                return res.status(403).json({ error: 'You can only add resources to your own courses' });
+            }
+        }
+        
+        const resource = {
+            id: resourceIdCounter++,
+            title,
+            description: description || '',
+            type, // 'pdf', 'video', 'link', 'document'
+            url: url || '',
+            courseId: courseId ? parseInt(courseId) : null,
+            uploadedBy: req.user.id,
+            uploaderName: req.user.username,
+            uploaderRole: req.user.role,
+            createdAt: new Date().toISOString()
+        };
+        
+        resources.push(resource);
+        
+        // Notify enrolled students if course-specific
+        if (courseId) {
+            const course = courses.find(c => c.id === parseInt(courseId));
+            if (course && course.enrolledStudents) {
+                course.enrolledStudents.forEach(studentId => {
+                    createNotification(
+                        studentId,
+                        'New Learning Resource',
+                        `New ${type} added to "${course.title}": ${title}`,
+                        'resource',
+                        resource.id
+                    );
+                });
+            }
+        }
+        
+        res.status(201).json({ resource });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get all resources (with filters)
+app.get('/api/resources', authMiddleware, (req, res) => {
+    try {
+        const { courseId, type } = req.query;
+        let filtered = resources;
+        
+        if (courseId) {
+            const course = courses.find(c => c.id === parseInt(courseId));
+            if (!course) {
+                return res.status(404).json({ error: 'Course not found' });
+            }
+            
+            // Check enrollment for students
+            if (req.user.role === 'student' && !course.enrolledStudents.includes(req.user.id)) {
+                return res.status(403).json({ error: 'You must be enrolled in this course to access resources' });
+            }
+            
+            filtered = filtered.filter(r => r.courseId === parseInt(courseId) || r.courseId === null);
+        } else {
+            // For students, only show resources from enrolled courses or public (no courseId)
+            if (req.user.role === 'student') {
+                const enrolledCourseIds = courses
+                    .filter(c => c.enrolledStudents.includes(req.user.id))
+                    .map(c => c.id);
+                filtered = filtered.filter(r => !r.courseId || enrolledCourseIds.includes(r.courseId));
+            }
+            // Tutors see their course resources + public
+            else if (req.user.role === 'tutor') {
+                const tutorCourseIds = courses
+                    .filter(c => c.tutorId === req.user.id)
+                    .map(c => c.id);
+                filtered = filtered.filter(r => !r.courseId || tutorCourseIds.includes(r.courseId));
+            }
+            // Admin sees all
+        }
+        
+        if (type) {
+            filtered = filtered.filter(r => r.type === type);
+        }
+        
+        res.json({ resources: filtered });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get single resource
+app.get('/api/resources/:id', authMiddleware, (req, res) => {
+    try {
+        const resourceId = parseInt(req.params.id);
+        const resource = resources.find(r => r.id === resourceId);
+        
+        if (!resource) {
+            return res.status(404).json({ error: 'Resource not found' });
+        }
+        
+        // Check access permissions
+        if (resource.courseId) {
+            const course = courses.find(c => c.id === resource.courseId);
+            if (req.user.role === 'student' && !course.enrolledStudents.includes(req.user.id)) {
+                return res.status(403).json({ error: 'Access denied' });
+            }
+            if (req.user.role === 'tutor' && course.tutorId !== req.user.id) {
+                return res.status(403).json({ error: 'Access denied' });
+            }
+        }
+        
+        res.json({ resource });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Update resource
+app.put('/api/resources/:id', authMiddleware, requireRole('tutor', 'admin'), (req, res) => {
+    try {
+        const resourceId = parseInt(req.params.id);
+        const resource = resources.find(r => r.id === resourceId);
+        
+        if (!resource) {
+            return res.status(404).json({ error: 'Resource not found' });
+        }
+        
+        // Only uploader or admin can update
+        if (req.user.role !== 'admin' && resource.uploadedBy !== req.user.id) {
+            return res.status(403).json({ error: 'You can only update your own resources' });
+        }
+        
+        const { title, description, type, url } = req.body;
+        
+        if (title) resource.title = title;
+        if (description !== undefined) resource.description = description;
+        if (type) resource.type = type;
+        if (url !== undefined) resource.url = url;
+        
+        res.json({ resource });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Delete resource
+app.delete('/api/resources/:id', authMiddleware, requireRole('tutor', 'admin'), (req, res) => {
+    try {
+        const resourceId = parseInt(req.params.id);
+        const resourceIndex = resources.findIndex(r => r.id === resourceId);
+        
+        if (resourceIndex === -1) {
+            return res.status(404).json({ error: 'Resource not found' });
+        }
+        
+        const resource = resources[resourceIndex];
+        
+        // Only uploader or admin can delete
+        if (req.user.role !== 'admin' && resource.uploadedBy !== req.user.id) {
+            return res.status(403).json({ error: 'You can only delete your own resources' });
+        }
+        
+        resources.splice(resourceIndex, 1);
+        
+        res.json({ message: 'Resource deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 });
 
