@@ -84,12 +84,22 @@ function setupEventListeners() {
 
 // Authentication
 function loadUserFromStorage() {
-    const token = localStorage.getItem('authToken');
-    const user = localStorage.getItem('currentUser');
-    
-    if (token && user) {
-        authToken = token;
-        currentUser = JSON.parse(user);
+    try {
+        const token = localStorage.getItem('authToken');
+        const user = localStorage.getItem('currentUser');
+        
+        if (token && user) {
+            authToken = token;
+            currentUser = JSON.parse(user);
+        } else {
+            // If either is missing, clear both to ensure consistent state
+            authToken = null;
+            currentUser = null;
+        }
+    } catch (error) {
+        console.error('Error loading user from storage:', error);
+        authToken = null;
+        currentUser = null;
     }
 }
 
@@ -694,9 +704,14 @@ function filterCourses() {
 }
 
 async function enrollCourse(courseId) {
+    // Ensure user is loaded
+    if (!currentUser) {
+        loadUserFromStorage();
+    }
+
     if (!currentUser) {
         alert('Please login first!');
-        navigateToSection('login');
+        window.location.href = 'login.html';
         return;
     }
     

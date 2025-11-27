@@ -175,8 +175,21 @@
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             // Check auth
-            const user = JSON.parse(localStorage.getItem('currentUser'));
-            if (!user || user.role !== 'student') {
+            const userStr = localStorage.getItem('currentUser');
+            const token = localStorage.getItem('authToken');
+            
+            if (!userStr || !token) {
+                window.location.href = 'login.html';
+                return;
+            }
+            
+            try {
+                const user = JSON.parse(userStr);
+                if (user.role !== 'student') {
+                    window.location.href = 'login.html';
+                    return;
+                }
+            } catch (e) {
                 window.location.href = 'login.html';
                 return;
             }
