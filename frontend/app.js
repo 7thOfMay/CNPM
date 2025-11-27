@@ -705,11 +705,9 @@ function filterCourses() {
 
 async function enrollCourse(courseId) {
     // Ensure user is loaded
-    if (!currentUser) {
-        loadUserFromStorage();
-    }
+    loadUserFromStorage();
 
-    if (!currentUser) {
+    if (!currentUser || !authToken) {
         alert('Please login first!');
         window.location.href = 'login.html';
         return;
@@ -735,15 +733,16 @@ async function enrollCourse(courseId) {
                 loadStudentDashboard();
             }
         } else {
+            const errorData = await response.json();
+            console.error('Enrollment error:', errorData);
+            
             if (response.status === 401) {
-                alert('Session expired. Please login again.');
+                alert(`Authentication Error: ${errorData.error}\nPlease login again.`);
                 handleLogout();
             } else if (response.status === 403) {
                 alert('Only students can enroll in courses!');
-            } else if (response.status === 400) {
-                alert(data.error || 'Enrollment failed');
             } else {
-                alert(data.error || 'Enrollment failed');
+                alert(errorData.error || 'Enrollment failed');
             }
         }
     } catch (error) {
