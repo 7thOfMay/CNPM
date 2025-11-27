@@ -21,6 +21,7 @@ const forumRoutes = require('./routes/forumRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const aiRoutes = require('./routes/aiRoutes');
 const chatRoutes = require('./routes/chatRoutes');
+const matchRoutes = require('./routes/matchRoutes');
 
 // Mount Routes
 app.use('/api/auth', authRoutes);
@@ -32,6 +33,7 @@ app.use('/api/forum', forumRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/match', matchRoutes);
 
 // Legacy/Compatibility Routes
 app.post('/api/users/register', (req, res) => {
