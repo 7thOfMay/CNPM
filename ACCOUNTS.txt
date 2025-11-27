@@ -1,0 +1,26 @@
+================================================================
+TUTOR PRO - DEMO ACCOUNTS
+================================================================
+Password for all accounts: admin123
+================================================================
+
+1. STUDENT ACCOUNT
+   Email: student@hcmut.edu.vn
+   Role: Student
+   Features: Enroll in courses, Find Tutors, View Schedule
+
+2. TUTOR ACCOUNT
+   Email: math@tutor.com
+   Role: Tutor
+   Features: Create Courses, Manage Sessions, View Progress
+
+3. ADMIN ACCOUNT
+   Email: admin@tutorpro.com
+   Role: Admin
+   Features: Manage Users, View Statistics
+
+================================================================
+OTHER AVAILABLE ACCOUNTS
+================================================================
+- Science Tutor: science@tutor.com
+- Coding Tutor: code@tutor.com
