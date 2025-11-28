@@ -1,24 +1,54 @@
-const { users, courses, sessions, resources, forumPosts } = require('../models/dataStore');
+const { users, courses, sessions, resources, forumPosts, emailLogs, progressRecords, ratings } = require('../models/dataStore');
 
 exports.getStats = (req, res) => {
+    // Calculate average rating
+    const avgRating = ratings.length > 0 
+        ? (ratings.reduce((acc, r) => acc + r.rating, 0) / ratings.length).toFixed(1) 
+        : 'N/A';
+
+    // Calculate completion rate (mock based on progress records vs enrollments)
+    const totalEnrollments = courses.reduce((acc, c) => acc + c.enrolled, 0);
+    const completionRate = totalEnrollments > 0 
+        ? ((progressRecords.length / totalEnrollments) * 100).toFixed(0) + '%' 
+        : '0%';
+
+    // Calculate average grade
+    const avgGrade = progressRecords.length > 0
+        ? (progressRecords.reduce((acc, r) => acc + r.grade, 0) / progressRecords.length).toFixed(2)
+        : 'N/A';
+
+    // Enrich progress records with student and course names for admin view
+    const enrichedGrades = progressRecords.map(record => {
+        const student = users.find(u => u.id === record.studentId);
+        const course = courses.find(c => c.id === record.courseId);
+        return {
+            ...record,
+            studentName: student ? student.username : 'Unknown',
+            courseName: course ? course.title : 'Unknown'
+        };
+    });
+
     const stats = {
-        users: {
-            total: users.length,
+        totalUsers: users.length,
+        totalCourses: courses.length,
+        totalSessions: sessions.length,
+        totalEnrollments: totalEnrollments,
+        totalResources: resources.length,
+        emailsSent: emailLogs.length,
+        activeUsers: users.length, // Simplified
+        completionRate: completionRate,
+        avgRating: avgRating,
+        usersByRole: {
             students: users.filter(u => u.role === 'student').length,
             tutors: users.filter(u => u.role === 'tutor').length,
             admins: users.filter(u => u.role === 'admin').length
         },
-        courses: {
-            total: courses.length,
-            active: courses.filter(c => c.status === 'active').length
-        },
-        sessions: {
-            total: sessions.length,
-            completed: sessions.filter(s => s.status === 'completed').length,
-            upcoming: sessions.filter(s => s.status === 'scheduled').length
-        },
-        resources: resources.length,
-        forumPosts: forumPosts.length
+        // Add grade stats for "grades of the entire system"
+        systemGrades: {
+            average: avgGrade,
+            totalRecords: progressRecords.length,
+            details: enrichedGrades
+        }
     };
     
     res.json(stats);

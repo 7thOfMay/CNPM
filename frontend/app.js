@@ -396,13 +396,13 @@ async function loadEnrolledCourses() {
         
         if (data.courses && data.courses.length > 0) {
             enrolledList.innerHTML = data.courses.map(course => `
-                <div class="course-card">
+                <div class="course-card" onclick="openStudentCourseDetails(${course.id})" style="cursor: pointer;">
                     <div class="course-card-header ${course.subject}"></div>
                     <div class="course-card-body">
                         <h3>${course.title}</h3>
                         <p>Subject: ${course.subject}</p>
                         <span class="course-badge">${course.level}</span>
-                        <button class="btn btn-primary" onclick="window.location.href='#chat'" style="margin-top: 1rem; width: 100%;">
+                        <button class="btn btn-primary" onclick="event.stopPropagation(); startChatWith(${course.tutorId}, '${course.tutorName}', '${course.tutorRole}')" style="margin-top: 1rem; width: 100%;">
                             Chat with Tutor
                         </button>
                     </div>
@@ -426,7 +426,7 @@ async function handleCreateCourse(e) {
     const level = document.getElementById('courseLevel').value;
     
     try {
-        const response = await fetch(`${API_BASE_URL}/tutor/courses`, {
+        const response = await fetch(`${API_BASE_URL}/courses`, {
             method: 'POST',
             headers: getAuthHeaders(),
             body: JSON.stringify({ title, subject, level })
@@ -459,7 +459,7 @@ function loadTutorDashboard() {
 
 async function loadTutorCourses() {
     try {
-        const response = await fetch(`${API_BASE_URL}/tutor/courses`, {
+        const response = await fetch(`${API_BASE_URL}/courses/my-courses`, {
             headers: getAuthHeaders()
         });
         const data = await response.json();
@@ -469,7 +469,7 @@ async function loadTutorCourses() {
 
         if (data.courses && data.courses.length > 0) {
             tutorCoursesList.innerHTML = data.courses.map(course => `
-                <div class="course-card">
+                <div class="course-card" onclick="openCourseDetails(${course.id})">
                     <div class="course-card-header ${course.subject}"></div>
                     <div class="course-card-body">
                         <h3>${course.title}</h3>
@@ -543,6 +543,45 @@ async function loadAdminStats() {
                 <div class="stat-card">
                     <h3>${data.emailsSent || 0}</h3>
                     <p>Emails Sent</p>
+                </div>
+            `;
+        }
+
+        // Render System Grades
+        const systemGradesEl = document.getElementById('systemGrades');
+        if (systemGradesEl && data.systemGrades) {
+            systemGradesEl.innerHTML = `
+                <div class="stats-grid" style="margin-bottom: 1rem;">
+                    <div class="stat-card">
+                        <h3>${data.systemGrades.average}</h3>
+                        <p>System Average Grade</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>${data.systemGrades.totalRecords}</h3>
+                        <p>Total Grade Records</p>
+                    </div>
+                </div>
+                <div style="max-height: 300px; overflow-y: auto;">
+                    <table class="users-table">
+                        <thead>
+                            <tr>
+                                <th>Student</th>
+                                <th>Course</th>
+                                <th>Grade</th>
+                                <th>Semester</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.systemGrades.details.map(record => `
+                                <tr>
+                                    <td>${record.studentName}</td>
+                                    <td>${record.courseName}</td>
+                                    <td><span class="course-badge">${record.grade}</span></td>
+                                    <td>${record.semester}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
                 </div>
             `;
         }
@@ -906,6 +945,14 @@ async function startChatWith(userId, username, role) {
         
         if (response.ok) {
             closeNewChatModal();
+            
+            // Switch to chat view
+            if (window.showTab) {
+                window.showTab('chat');
+            } else {
+                navigateToSection('chat');
+            }
+
             await loadChatRooms();
             openChatRoom(data.room.id, userId, username, role);
         } else {
@@ -1101,7 +1148,7 @@ async function setupCreateSessionForm() {
     
     // Load tutor courses into select
     try {
-        const response = await fetch(`${API_BASE_URL}/tutor/courses`, {
+        const response = await fetch(`${API_BASE_URL}/courses/my-courses`, {
             headers: getAuthHeaders()
         });
         const data = await response.json();
@@ -1239,7 +1286,7 @@ async function submitRating(sessionId, rating, feedback) {
 
 async function loadTutorProgress() {
     try {
-        const response = await fetch(`${API_BASE_URL}/tutor/courses`, {
+        const response = await fetch(`${API_BASE_URL}/courses/my-courses`, {
             headers: getAuthHeaders()
         });
         const data = await response.json();
@@ -1522,7 +1569,7 @@ async function setupCreateResourceForm() {
     
     // Load courses into select
     try {
-        const response = await fetch(`${API_BASE_URL}/tutor/courses`, {
+        const response = await fetch(`${API_BASE_URL}/courses/my-courses`, {
             headers: getAuthHeaders()
         });
         const data = await response.json();
@@ -1903,4 +1950,276 @@ async function syncDatacore() {
 
 // Refresh health status periodically
 setInterval(checkSystemHealth, 30000);
+
+// ==================== COURSE DETAILS MODAL ====================
+let currentDetailCourseId = null;
+
+async function openCourseDetails(courseId) {
+    currentDetailCourseId = courseId;
+    const modal = document.getElementById('courseDetailsModal');
+    modal.classList.remove('hidden');
+    
+    // Reset tabs
+    switchModalTab('resources');
+    
+    // Load Course Info
+    try {
+        // We can find the course in the already loaded list or fetch it
+        // For simplicity, let's fetch details if we had an endpoint, but we can just use the ID to fetch related data
+        document.getElementById('modalCourseTitle').textContent = 'Loading...';
+        
+        // Fetch Resources
+        loadModalResources(courseId);
+        
+        // Fetch Sessions
+        loadModalSessions(courseId);
+        
+        // Fetch Students/Progress
+        loadModalStudents(courseId);
+        
+    } catch (error) {
+        console.error('Error opening course details:', error);
+    }
+}
+
+function closeCourseDetailsModal() {
+    document.getElementById('courseDetailsModal').classList.add('hidden');
+    currentDetailCourseId = null;
+}
+
+function switchModalTab(tabName) {
+    // Update buttons
+    document.querySelectorAll('.modal-tabs .tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.getAttribute('onclick').includes(tabName)) {
+            btn.classList.add('active');
+        }
+    });
+    
+    // Update content
+    document.querySelectorAll('.modal-tab-content').forEach(content => {
+        content.classList.add('hidden');
+    });
+    document.getElementById(`modal-tab-${tabName}`).classList.remove('hidden');
+}
+
+async function loadModalResources(courseId) {
+    const container = document.getElementById('modalResourcesList');
+    container.innerHTML = '<p>Loading resources...</p>';
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/resources?courseId=${courseId}`, {
+            headers: getAuthHeaders()
+        });
+        const data = await response.json();
+        
+        if (data.resources && data.resources.length > 0) {
+            container.innerHTML = data.resources.map(resource => `
+                <div class="resource-item">
+                    <div class="resource-info">
+                        <div class="resource-icon">${resource.type.toUpperCase()}</div>
+                        <div class="resource-details">
+                            <h4>${resource.title}</h4>
+                            <p>${resource.description || 'No description'}</p>
+                        </div>
+                    </div>
+                    <div class="resource-actions">
+                        <a href="${resource.url}" target="_blank" class="btn btn-small btn-primary">View</a>
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            container.innerHTML = '<p>No resources uploaded for this course.</p>';
+        }
+    } catch (error) {
+        container.innerHTML = '<p class="error">Failed to load resources.</p>';
+    }
+}
+
+async function loadModalSessions(courseId) {
+    const container = document.getElementById('modalSessionsList');
+    container.innerHTML = '<p>Loading schedule...</p>';
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/sessions?courseId=${courseId}`, {
+            headers: getAuthHeaders()
+        });
+        const data = await response.json();
+        
+        if (data.sessions && data.sessions.length > 0) {
+            container.innerHTML = data.sessions.map(session => `
+                <div class="session-card" style="margin-bottom: 1rem;">
+                    <div class="session-header">
+                        <div class="session-title">${new Date(session.date).toLocaleDateString()} - ${session.startTime}</div>
+                        <span class="session-status ${session.status}">${session.status}</span>
+                    </div>
+                    <div class="session-meta">
+                        <span>Location: ${session.location}</span>
+                        <span>Booked: ${session.bookedStudents.length}/${session.maxStudents}</span>
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            container.innerHTML = '<p>No sessions scheduled.</p>';
+        }
+    } catch (error) {
+        container.innerHTML = '<p class="error">Failed to load sessions.</p>';
+    }
+}
+
+async function loadModalStudents(courseId) {
+    const container = document.getElementById('modalStudentsList');
+    container.innerHTML = '<p>Loading students...</p>';
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/progress/course/${courseId}`, {
+            headers: getAuthHeaders()
+        });
+        
+        if (!response.ok) throw new Error('Failed to fetch');
+        
+        const data = await response.json();
+        
+        // Update Title with Course Name
+        if (data.courseTitle) {
+            document.getElementById('modalCourseTitle').textContent = data.courseTitle;
+        }
+        
+        if (data.students && data.students.length > 0) {
+            container.innerHTML = `
+                <table class="progress-table">
+                    <thead>
+                        <tr>
+                            <th>Student</th>
+                            <th>Attendance</th>
+                            <th>Progress</th>
+                            <th>Grade</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.students.map(s => {
+                            const percent = s.totalSessions > 0 ? (s.completedSessions / s.totalSessions * 100).toFixed(0) : 0;
+                            return `
+                                <tr>
+                                    <td>${s.studentName}</td>
+                                    <td>${s.completedSessions} / ${s.totalSessions} sessions</td>
+                                    <td>
+                                        <div class="progress-bar">
+                                            <div class="progress-fill" style="width: ${percent}%"></div>
+                                        </div>
+                                        <span style="font-size: 0.85rem;">${percent}%</span>
+                                    </td>
+                                    <td><span class="course-badge">${s.grade !== undefined ? s.grade : 'N/A'}</span></td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+        } else {
+            container.innerHTML = '<p>No students enrolled yet.</p>';
+        }
+    } catch (error) {
+        container.innerHTML = '<p class="error">Failed to load student progress.</p>';
+    }
+}
+
+// ==================== STUDENT COURSE DETAILS MODAL ====================
+let currentStudentDetailCourseId = null;
+
+async function openStudentCourseDetails(courseId) {
+    currentStudentDetailCourseId = courseId;
+    const modal = document.getElementById('studentCourseDetailsModal');
+    if (!modal) return;
+    
+    modal.classList.remove('hidden');
+    
+    // Reset tabs
+    switchStudentModalTab('overview');
+    
+    // Load Data
+    loadStudentModalOverview(courseId);
+    loadStudentModalResources(courseId);
+}
+
+function closeStudentCourseDetails() {
+    const modal = document.getElementById('studentCourseDetailsModal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+    currentStudentDetailCourseId = null;
+}
+
+function switchStudentModalTab(tabName) {
+    // Update buttons
+    document.querySelectorAll('#studentCourseDetailsModal .tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.getAttribute('onclick').includes(tabName)) {
+            btn.classList.add('active');
+        }
+    });
+    
+    // Update content
+    document.querySelectorAll('#studentCourseDetailsModal .modal-tab-content').forEach(content => {
+        content.classList.add('hidden');
+    });
+    document.getElementById(`studentModalTab-${tabName}`).classList.remove('hidden');
+}
+
+async function loadStudentModalOverview(courseId) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/progress/student/course/${courseId}`, {
+            headers: getAuthHeaders()
+        });
+        
+        if (!response.ok) throw new Error('Failed to fetch progress');
+        
+        const data = await response.json();
+        
+        document.getElementById('studentModalCourseTitle').textContent = data.courseTitle;
+        document.getElementById('studentModalTutorName').textContent = data.tutorName;
+        document.getElementById('studentModalGrade').textContent = data.grade !== undefined ? data.grade : 'N/A';
+        
+        const percent = data.progress.percentage;
+        document.getElementById('studentModalProgressBar').style.width = `${percent}%`;
+        document.getElementById('studentModalProgressText').textContent = `${data.progress.completedSessions}/${data.progress.totalSessions} Sessions (${percent}%)`;
+        
+    } catch (error) {
+        console.error('Failed to load student overview:', error);
+        document.getElementById('studentModalCourseTitle').textContent = 'Error loading details';
+    }
+}
+
+async function loadStudentModalResources(courseId) {
+    const container = document.getElementById('studentModalResourcesList');
+    container.innerHTML = '<p>Loading resources...</p>';
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/resources?courseId=${courseId}`, {
+            headers: getAuthHeaders()
+        });
+        const data = await response.json();
+        
+        if (data.resources && data.resources.length > 0) {
+            container.innerHTML = data.resources.map(resource => `
+                <div class="resource-item">
+                    <div class="resource-info">
+                        <div class="resource-icon">${resource.type.toUpperCase()}</div>
+                        <div class="resource-details">
+                            <h4>${resource.title}</h4>
+                            <p>${resource.description || 'No description'}</p>
+                        </div>
+                    </div>
+                    <div class="resource-actions">
+                        <a href="${resource.url}" target="_blank" class="btn btn-small btn-primary">View</a>
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            container.innerHTML = '<p>No resources available for this course.</p>';
+        }
+    } catch (error) {
+        container.innerHTML = '<p class="error">Failed to load resources.</p>';
+    }
+}
 

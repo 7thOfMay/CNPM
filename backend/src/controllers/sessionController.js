@@ -1,7 +1,7 @@
 const { sessions, courses, users, notifications } = require('../models/dataStore');
 const { sendEmail } = require('../utils/emailService');
 
-let sessionIdCounter = 1;
+let sessionIdCounter = 5; // Start after manual IDs
 let notificationIdCounter = 1;
 
 // Helper to create notification
@@ -53,7 +53,7 @@ exports.createSession = (req, res) => {
         location: location || 'Online',
         description: description || '',
         status: 'scheduled', // scheduled, completed, cancelled
-        students: [], // Array of student IDs
+        bookedStudents: [], // Array of student IDs
         createdAt: new Date().toISOString()
     };
     
@@ -78,6 +78,18 @@ exports.getSessions = (req, res) => {
     const { courseId, startDate, endDate } = req.query;
     let filteredSessions = sessions;
     
+    // Role-based filtering
+    if (req.user.role === 'tutor') {
+        filteredSessions = filteredSessions.filter(s => s.tutorId === req.user.id);
+    } else if (req.user.role === 'student') {
+        // Get courses student is enrolled in
+        const enrolledCourseIds = courses
+            .filter(c => c.enrolledStudents && c.enrolledStudents.includes(req.user.id))
+            .map(c => c.id);
+            
+        filteredSessions = filteredSessions.filter(s => enrolledCourseIds.includes(s.courseId));
+    }
+    
     if (courseId) {
         filteredSessions = filteredSessions.filter(s => s.courseId === parseInt(courseId));
     }
@@ -94,14 +106,17 @@ exports.getSessions = (req, res) => {
     // Enrich with course info
     const enrichedSessions = filteredSessions.map(s => {
         const course = courses.find(c => c.id === s.courseId);
+        const tutor = users.find(u => u.id === s.tutorId);
         return {
             ...s,
-            courseTitle: course ? course.title : 'Unknown Course',
-            courseSubject: course ? course.subject : 'Unknown'
+            courseName: course ? course.title : 'Unknown Course',
+            courseSubject: course ? course.subject : 'Unknown',
+            tutorName: tutor ? tutor.username : 'Unknown Tutor',
+            bookedStudents: s.bookedStudents || []
         };
     });
     
-    res.json(enrichedSessions);
+    res.json({ sessions: enrichedSessions });
 };
 
 exports.bookSession = (req, res) => {
@@ -116,15 +131,15 @@ exports.bookSession = (req, res) => {
         return res.status(400).json({ error: 'Session is not available for booking' });
     }
     
-    if (session.students.includes(req.user.id)) {
+    if (session.bookedStudents.includes(req.user.id)) {
         return res.status(400).json({ error: 'Already booked this session' });
     }
     
-    if (session.students.length >= session.maxStudents) {
+    if (session.bookedStudents.length >= session.maxStudents) {
         return res.status(400).json({ error: 'Session is full' });
     }
     
-    session.students.push(req.user.id);
+    session.bookedStudents.push(req.user.id);
     
     // Notify tutor
     createNotification(
@@ -145,12 +160,12 @@ exports.cancelBooking = (req, res) => {
         return res.status(404).json({ error: 'Session not found' });
     }
     
-    const studentIndex = session.students.indexOf(req.user.id);
+    const studentIndex = session.bookedStudents.indexOf(req.user.id);
     if (studentIndex === -1) {
         return res.status(400).json({ error: 'You have not booked this session' });
     }
     
-    session.students.splice(studentIndex, 1);
+    session.bookedStudents.splice(studentIndex, 1);
     
     // Notify tutor
     createNotification(
@@ -183,7 +198,7 @@ exports.updateSession = (req, res) => {
     
     // Notify students if cancelled
     if (status === 'cancelled') {
-        session.students.forEach(studentId => {
+        session.bookedStudents.forEach(studentId => {
             createNotification(
                 studentId,
                 'Session Cancelled',
@@ -211,7 +226,7 @@ exports.deleteSession = (req, res) => {
     }
     
     // Notify students
-    session.students.forEach(studentId => {
+    session.bookedStudents.forEach(studentId => {
         createNotification(
             studentId,
             'Session Cancelled',

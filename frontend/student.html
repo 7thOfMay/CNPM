@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Student Dashboard - TutorPro</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles-modal.css">
 </head>
 <body>
     <div class="container">
@@ -17,18 +18,14 @@
                     <a href="#dashboard" class="active" onclick="showTab('dashboard')">Dashboard</a>
                     <a href="#courses" onclick="showTab('courses')">Courses</a>
                     <a href="#schedule" onclick="showTab('schedule')">Schedule</a>
-                    <a href="#chat" id="chatLink">Messages <span id="unreadBadge" class="badge hidden">0</span></a>
-                    <a href="#notifications" id="notificationsLink">Notifications <span id="notificationBadge" class="badge hidden">0</span></a>
+                    <a href="#chat" id="chatLink" onclick="showTab('chat')">Messages <span id="unreadBadge" class="badge hidden">0</span></a>
+                    <a href="#notifications" id="notificationsLink" onclick="showTab('notifications')">Notifications <span id="notificationBadge" class="badge hidden">0</span></a>
                     <button id="logoutBtn" class="btn btn-small">Logout</button>
                 </div>
             </nav>
         </header>
 
         <main style="padding: 2rem;">
-            <div class="welcome-section">
-                <h3 id="studentWelcome">Welcome back!</h3>
-            </div>
-
             <!-- Dashboard Tab -->
             <div id="tab-dashboard" class="tab-content">
                 <div class="dashboard-section">
@@ -123,6 +120,43 @@
             </section>
 
         </main>
+    </div>
+
+    <!-- Course Details Modal for Students -->
+    <div id="studentCourseDetailsModal" class="modal hidden">
+        <div class="modal-content large-modal">
+            <span class="close-modal" onclick="closeStudentCourseDetails()">&times;</span>
+            <h2 id="studentModalCourseTitle">Course Details</h2>
+            
+            <div class="modal-tabs">
+                <button class="tab-btn active" onclick="switchStudentModalTab('overview')">Overview</button>
+                <button class="tab-btn" onclick="switchStudentModalTab('resources')">Resources</button>
+            </div>
+
+            <div id="studentModalTab-overview" class="modal-tab-content">
+                <div class="detail-group">
+                    <label>Tutor:</label>
+                    <span id="studentModalTutorName">Loading...</span>
+                </div>
+                <div class="detail-group">
+                    <label>Your Grade:</label>
+                    <span id="studentModalGrade" class="grade-badge">Loading...</span>
+                </div>
+                <div class="detail-group">
+                    <label>Attendance Progress:</label>
+                    <div class="progress-bar-container">
+                        <div id="studentModalProgressBar" class="progress-bar-fill" style="width: 0%"></div>
+                    </div>
+                    <span id="studentModalProgressText">0/0 Sessions</span>
+                </div>
+            </div>
+
+            <div id="studentModalTab-resources" class="modal-tab-content hidden">
+                <div id="studentModalResourcesList" class="resource-list">
+                    <!-- Resources will be loaded here -->
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="app.js?v=2"></script>

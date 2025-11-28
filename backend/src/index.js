@@ -28,6 +28,7 @@ const forumRoutes = require('./routes/forumRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const progressRoutes = require('./routes/progressRoutes');
 
 // Mount Routes
 app.use('/api/auth', authRoutes);
@@ -39,6 +40,7 @@ app.use('/api/forum', forumRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/progress', progressRoutes);
 
 // Legacy/Compatibility Routes
 app.post('/api/users/register', (req, res) => {

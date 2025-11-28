@@ -84,9 +84,14 @@ exports.getMyCourses = (req, res) => {
     if (req.user.role === 'student') {
         myCourses = courses.filter(c => {
             const isEnrolled = c.enrolledStudents && c.enrolledStudents.includes(req.user.id);
-            // Debug log for each course check
-            // console.log(`Checking course ${c.id}: enrolledStudents=[${c.enrolledStudents}], userId=${req.user.id}, match=${isEnrolled}`);
             return isEnrolled;
+        }).map(course => {
+            const tutor = users.find(u => u.id === course.tutorId);
+            return {
+                ...course,
+                tutorName: tutor ? tutor.username : 'Unknown Tutor',
+                tutorRole: tutor ? tutor.role : 'tutor'
+            };
         });
     } else if (req.user.role === 'tutor') {
         myCourses = courses.filter(c => c.tutorId === req.user.id);

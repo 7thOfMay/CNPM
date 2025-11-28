@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tutor Dashboard - TutorPro</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles-modal.css">
 </head>
 <body>
     <div class="container">
@@ -18,18 +19,14 @@
                     <a href="#courses" onclick="showTab('courses')">My Courses</a>
                     <a href="#sessions" onclick="showTab('sessions')">Sessions</a>
                     <a href="#resources" onclick="showTab('resources')">Resources</a>
-                    <a href="#chat" id="chatLink">Messages <span id="unreadBadge" class="badge hidden">0</span></a>
-                    <a href="#notifications" id="notificationsLink">Notifications <span id="notificationBadge" class="badge hidden">0</span></a>
+                    <a href="#chat" id="chatLink" onclick="showTab('chat')">Messages <span id="unreadBadge" class="badge hidden">0</span></a>
+                    <a href="#notifications" id="notificationsLink" onclick="showTab('notifications')">Notifications <span id="notificationBadge" class="badge hidden">0</span></a>
                     <button id="logoutBtn" class="btn btn-small">Logout</button>
                 </div>
             </nav>
         </header>
 
         <main style="padding: 2rem;">
-            <div class="welcome-section">
-                <h3 id="tutorWelcome">Welcome back!</h3>
-            </div>
-
             <!-- Dashboard Tab -->
             <div id="tab-dashboard" class="tab-content">
                 <div class="dashboard-section">
@@ -40,6 +37,10 @@
 
             <!-- Courses Tab -->
             <div id="tab-courses" class="tab-content hidden">
+                <div class="dashboard-section">
+                    <h3>My Courses</h3>
+                    <div id="tutorCoursesList"></div>
+                </div>
                 <div class="dashboard-section">
                     <h3>Create New Course</h3>
                     <form id="createCourseForm" class="form">
@@ -67,14 +68,14 @@
                     </form>
                     <div id="createCourseMessage" class="message"></div>
                 </div>
-                <div class="dashboard-section">
-                    <h3>My Courses</h3>
-                    <div id="tutorCoursesList"></div>
-                </div>
             </div>
 
             <!-- Sessions Tab -->
             <div id="tab-sessions" class="tab-content hidden">
+                <div class="dashboard-section">
+                    <h3>My Sessions</h3>
+                    <div id="tutorSessionsList"></div>
+                </div>
                 <div class="dashboard-section">
                     <h3>Create Session</h3>
                     <form id="createSessionForm" class="form">
@@ -109,10 +110,6 @@
                         <button type="submit" class="btn btn-primary">Create Session</button>
                     </form>
                     <div id="createSessionMessage" class="message"></div>
-                </div>
-                <div class="dashboard-section">
-                    <h3>My Sessions</h3>
-                    <div id="tutorSessionsList"></div>
                 </div>
             </div>
 
@@ -199,6 +196,30 @@
             </section>
 
         </main>
+    </div>
+
+    <!-- Course Details Modal -->
+    <div id="courseDetailsModal" class="modal hidden">
+        <div class="modal-content large-modal">
+            <span class="close-modal" onclick="closeCourseDetailsModal()">&times;</span>
+            <h2 id="modalCourseTitle">Course Details</h2>
+            
+            <div class="modal-tabs">
+                <button class="tab-btn active" onclick="switchModalTab('resources')">Resources</button>
+                <button class="tab-btn" onclick="switchModalTab('sessions')">Schedule</button>
+                <button class="tab-btn" onclick="switchModalTab('students')">Students & Progress</button>
+            </div>
+
+            <div id="modal-tab-resources" class="modal-tab-content">
+                <div id="modalResourcesList"></div>
+            </div>
+            <div id="modal-tab-sessions" class="modal-tab-content hidden">
+                <div id="modalSessionsList"></div>
+            </div>
+            <div id="modal-tab-students" class="modal-tab-content hidden">
+                <div id="modalStudentsList"></div>
+            </div>
+        </div>
     </div>
 
     <script src="app.js?v=2"></script>
