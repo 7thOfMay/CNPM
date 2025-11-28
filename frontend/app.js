@@ -1,5 +1,4 @@
 const API_BASE_URL = 'http://localhost:3000/api';
-const AI_SERVICE_URL = 'http://localhost:5000/api';
 
 // State management
 let currentUser = null;
@@ -47,22 +46,10 @@ function setupEventListeners() {
         logoutBtn.addEventListener('click', handleLogout);
     }
 
-    // Tutor form
-    const tutorForm = document.getElementById('tutorForm');
-    if (tutorForm) {
-        tutorForm.addEventListener('submit', handleTutorQuestion);
-    }
-
     // Create course form
     const createCourseForm = document.getElementById('createCourseForm');
     if (createCourseForm) {
         createCourseForm.addEventListener('submit', handleCreateCourse);
-    }
-
-    // Quick tutor form (student dashboard)
-    const quickTutorForm = document.getElementById('quickTutorForm');
-    if (quickTutorForm) {
-        quickTutorForm.addEventListener('submit', handleQuickTutorQuestion);
     }
     
     // Chat event listeners
@@ -88,22 +75,25 @@ function loadUserFromStorage() {
         const token = localStorage.getItem('authToken');
         const user = localStorage.getItem('currentUser');
         
-        if (token && user) {
+        if (token && token !== 'undefined' && token !== 'null' && user) {
             authToken = token;
             currentUser = JSON.parse(user);
         } else {
             // If either is missing, clear both to ensure consistent state
-            authToken = null;
-            currentUser = null;
+            console.warn('Invalid storage state, clearing...');
+            clearUserFromStorage();
         }
     } catch (error) {
         console.error('Error loading user from storage:', error);
-        authToken = null;
-        currentUser = null;
+        clearUserFromStorage();
     }
 }
 
 function saveUserToStorage(user, token) {
+    if (!token || token === 'undefined' || token === 'null') {
+        console.error('Attempted to save invalid token:', token);
+        return;
+    }
     localStorage.setItem('authToken', token);
     localStorage.setItem('currentUser', JSON.stringify(user));
     authToken = token;
@@ -129,26 +119,26 @@ function updateAuthUI() {
     const getStartedBtn = document.getElementById('getStartedBtn');
     
     if (currentUser) {
-        logoutBtn.classList.remove('hidden');
-        chatLink.classList.remove('hidden');
-        notificationsLink.classList.remove('hidden');
-        libraryLink.classList.remove('hidden');
-        forumLink.classList.remove('hidden');
+        if (logoutBtn) logoutBtn.classList.remove('hidden');
+        if (chatLink) chatLink.classList.remove('hidden');
+        if (notificationsLink) notificationsLink.classList.remove('hidden');
+        if (libraryLink) libraryLink.classList.remove('hidden');
+        if (forumLink) forumLink.classList.remove('hidden');
         if (getStartedBtn) getStartedBtn.classList.add('hidden');
         
         // Show role-specific dashboard link only
         if (currentUser.role === 'student') {
-            studentDashLink.classList.remove('hidden');
-            tutorDashLink.classList.add('hidden');
-            adminDashLink.classList.add('hidden');
+            if (studentDashLink) studentDashLink.classList.remove('hidden');
+            if (tutorDashLink) tutorDashLink.classList.add('hidden');
+            if (adminDashLink) adminDashLink.classList.add('hidden');
         } else if (currentUser.role === 'tutor') {
-            studentDashLink.classList.add('hidden');
-            tutorDashLink.classList.remove('hidden');
-            adminDashLink.classList.add('hidden');
+            if (studentDashLink) studentDashLink.classList.add('hidden');
+            if (tutorDashLink) tutorDashLink.classList.remove('hidden');
+            if (adminDashLink) adminDashLink.classList.add('hidden');
         } else if (currentUser.role === 'admin') {
-            studentDashLink.classList.add('hidden');
-            tutorDashLink.classList.add('hidden');
-            adminDashLink.classList.remove('hidden');
+            if (studentDashLink) studentDashLink.classList.add('hidden');
+            if (tutorDashLink) tutorDashLink.classList.add('hidden');
+            if (adminDashLink) adminDashLink.classList.remove('hidden');
         }
         
         // Start checking for unread messages and notifications
@@ -161,14 +151,14 @@ function updateAuthUI() {
             }, 10000);
         }
     } else {
-        logoutBtn.classList.add('hidden');
-        studentDashLink.classList.add('hidden');
-        tutorDashLink.classList.add('hidden');
-        adminDashLink.classList.add('hidden');
-        chatLink.classList.add('hidden');
-        notificationsLink.classList.add('hidden');
-        libraryLink.classList.add('hidden');
-        forumLink.classList.add('hidden');
+        if (logoutBtn) logoutBtn.classList.add('hidden');
+        if (studentDashLink) studentDashLink.classList.add('hidden');
+        if (tutorDashLink) tutorDashLink.classList.add('hidden');
+        if (adminDashLink) adminDashLink.classList.add('hidden');
+        if (chatLink) chatLink.classList.add('hidden');
+        if (notificationsLink) notificationsLink.classList.add('hidden');
+        if (libraryLink) libraryLink.classList.add('hidden');
+        if (forumLink) forumLink.classList.add('hidden');
         if (getStartedBtn) getStartedBtn.classList.remove('hidden');
         
         if (chatRefreshInterval) {
@@ -390,10 +380,40 @@ function filterStudentCourses() {
     displayStudentCourses(filtered);
 }
 
-function loadEnrolledCourses() {
+async function loadEnrolledCourses() {
     const enrolledList = document.getElementById('myEnrolledCourses');
-    if (enrolledList) {
-        enrolledList.innerHTML = '<p>Your enrolled courses will appear here after enrollment.</p>';
+    if (!enrolledList) return;
+
+    console.log('Loading enrolled courses...');
+    try {
+        const response = await fetch(`${API_BASE_URL}/courses/my-courses`, {
+            headers: getAuthHeaders()
+        });
+        console.log('Enrolled courses response status:', response.status);
+        
+        const data = await response.json();
+        console.log('Enrolled courses data:', data);
+        
+        if (data.courses && data.courses.length > 0) {
+            enrolledList.innerHTML = data.courses.map(course => `
+                <div class="course-card">
+                    <div class="course-card-header ${course.subject}"></div>
+                    <div class="course-card-body">
+                        <h3>${course.title}</h3>
+                        <p>Subject: ${course.subject}</p>
+                        <span class="course-badge">${course.level}</span>
+                        <button class="btn btn-primary" onclick="window.location.href='#chat'" style="margin-top: 1rem; width: 100%;">
+                            Chat with Tutor
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            enrolledList.innerHTML = '<p>You are not enrolled in any courses yet.</p>';
+        }
+    } catch (error) {
+        console.error('Failed to load enrolled courses:', error);
+        enrolledList.innerHTML = '<p>Failed to load courses.</p>';
     }
 }
 
@@ -658,6 +678,8 @@ async function loadCourses() {
 function displayCourses(courses) {
     const coursesList = document.getElementById('coursesList');
     
+    if (!coursesList) return; // Fix: Check if element exists
+    
     if (courses.length === 0) {
         coursesList.innerHTML = '<p>No courses available.</p>';
         return;
@@ -707,6 +729,8 @@ async function enrollCourse(courseId) {
     // Ensure user is loaded
     loadUserFromStorage();
 
+    console.log('Enrolling with token:', authToken);
+
     if (!currentUser || !authToken) {
         alert('Please login first!');
         window.location.href = 'login.html';
@@ -729,6 +753,8 @@ async function enrollCourse(courseId) {
         if (response.ok) {
             alert('Successfully enrolled! You can now chat with the course tutor.');
             loadCourses();
+            // Always reload enrolled courses to ensure dashboard is up to date
+            loadEnrolledCourses();
             if (window.location.hash === '#student-dashboard') {
                 loadStudentDashboard();
             }
@@ -750,118 +776,16 @@ async function enrollCourse(courseId) {
     }
 }
 
-// AI Tutor
-async function handleTutorQuestion(e) {
-    e.preventDefault();
-    
-    if (!currentUser) {
-        alert('Please login to use AI Tutor!');
-        navigateToSection('login');
-        return;
-    }
-    
-    if (currentUser.role !== 'student') {
-        alert('Only students can use the AI Tutor!');
-        return;
-    }
-    
-    const question = document.getElementById('question').value;
-    const subject = document.getElementById('subject').value;
-    
-    // Display user message
-    addChatMessage('user', question);
-    
-    // Clear input
-    document.getElementById('question').value = '';
-    
-    try {
-        const response = await fetch(`${API_BASE_URL}/tutoring/ask`, {
-            method: 'POST',
-            headers: getAuthHeaders(),
-            body: JSON.stringify({ question, subject })
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-            addChatMessage('ai', data.answer);
-        } else {
-            if (response.status === 401) {
-                addChatMessage('ai', 'Session expired. Please login again.');
-                handleLogout();
-            } else if (response.status === 403) {
-                addChatMessage('ai', 'Only students can use the AI Tutor!');
-            } else {
-                addChatMessage('ai', 'Sorry, I encountered an error. Please try again.');
-            }
-        }
-    } catch (error) {
-        addChatMessage('ai', 'Network error. Please check your connection.');
-    }
-}
-
-function addChatMessage(type, message) {
-    const chatHistory = document.getElementById('chatHistory');
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `chat-message ${type}`;
-    messageDiv.textContent = message;
-    chatHistory.appendChild(messageDiv);
-    chatHistory.scrollTop = chatHistory.scrollHeight;
-}
-
-// Quick AI Tutor for Student Dashboard
-async function handleQuickTutorQuestion(e) {
-    e.preventDefault();
-    
-    const question = document.getElementById('quickQuestion').value;
-    const subject = document.getElementById('quickSubject').value;
-    
-    // Display user message
-    addQuickChatMessage('user', question);
-    
-    // Clear input
-    document.getElementById('quickQuestion').value = '';
-    
-    try {
-        const response = await fetch(`${API_BASE_URL}/tutoring/ask`, {
-            method: 'POST',
-            headers: getAuthHeaders(),
-            body: JSON.stringify({ question, subject })
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-            addQuickChatMessage('ai', data.answer);
-        } else {
-            if (response.status === 401) {
-                addQuickChatMessage('ai', 'Session expired. Please login again.');
-                handleLogout();
-            } else {
-                addQuickChatMessage('ai', 'Sorry, I encountered an error. Please try again.');
-            }
-        }
-    } catch (error) {
-        addQuickChatMessage('ai', 'Network error. Please check your connection.');
-    }
-}
-
-function addQuickChatMessage(type, message) {
-    const chatHistory = document.getElementById('quickChatHistory');
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `chat-message ${type}`;
-    messageDiv.textContent = message;
-    chatHistory.appendChild(messageDiv);
-    chatHistory.scrollTop = chatHistory.scrollHeight;
-}
+// AI Tutor functions removed
 
 // System Health
 async function checkSystemHealth() {
     const healthStatus = document.getElementById('healthStatus');
+    if (!healthStatus) return; // Fix: Check if element exists
     
+    // Only check Backend
     const services = [
-        { name: 'Backend', url: 'http://localhost:3000/health' },
-        { name: 'AI Service', url: 'http://localhost:5000/health' }
+        { name: 'Backend API', url: 'http://localhost:3000/health' }
     ];
     
     const statusHTML = await Promise.all(services.map(async (service) => {
@@ -1432,53 +1356,6 @@ async function markAllNotificationsRead() {
     }
 }
 
-// ==================== AI TUTOR MATCHING ====================
-async function loadRecommendedTutors() {
-    const subject = document.getElementById('matchSubjectFilter').value;
-    const level = document.getElementById('matchLevelFilter').value;
-    
-    try {
-        const response = await fetch(`${API_BASE_URL}/match/tutors?subject=${subject}&level=${level}`, {
-            headers: getAuthHeaders()
-        });
-        const data = await response.json();
-        
-        const listDiv = document.getElementById('recommendedTutorsList');
-        if (data.tutors && data.tutors.length > 0) {
-            listDiv.innerHTML = data.tutors.map(tutor => `
-                <div class="tutor-card">
-                    <div class="tutor-header">
-                        <div class="tutor-info">
-                            <h4>${tutor.tutorName}</h4>
-                            <p style="color: var(--text-secondary); font-size: 0.9rem;">${tutor.tutorEmail}</p>
-                            ${tutor.totalRatings > 0 ? `
-                                <div class="tutor-rating">
-                                    <span>Rating: ${tutor.averageRating}</span>
-                                    <span style="color: var(--text-secondary); font-weight: normal;">(${tutor.totalRatings} reviews)</span>
-                                </div>
-                            ` : ''}
-                        </div>
-                        <div class="match-score">
-                            Match: ${tutor.matchScore}%
-                        </div>
-                    </div>
-                    ${tutor.courses && tutor.courses.length > 0 ? `
-                        <div class="tutor-courses">
-                            ${tutor.courses.map(c => `
-                                <span class="course-badge">${c.subject} - ${c.level}</span>
-                            `).join('')}
-                        </div>
-                    ` : ''}
-                </div>
-            `).join('');
-        } else {
-            listDiv.innerHTML = '<p>No tutors found matching your criteria.</p>';
-        }
-    } catch (error) {
-        console.error('Failed to load recommended tutors:', error);
-    }
-}
-
 // Check notifications periodically
 setInterval(() => {
     if (currentUser) {
@@ -1669,14 +1546,31 @@ async function handleCreateResource(e) {
     const courseId = document.getElementById('resourceCourse').value;
     const title = document.getElementById('resourceTitle').value;
     const type = document.getElementById('resourceType').value;
-    const url = document.getElementById('resourceUrl').value;
+    const fileInput = document.getElementById('resourceFile');
     const description = document.getElementById('resourceDescription').value;
     
+    if (fileInput.files.length === 0) {
+        alert('Please select a file');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('title', title);
+    formData.append('type', type);
+    formData.append('description', description);
+    if (courseId) formData.append('courseId', courseId);
+    formData.append('file', fileInput.files[0]);
+    
     try {
+        const headers = {};
+        if (authToken) {
+            headers['Authorization'] = `Bearer ${authToken}`;
+        }
+
         const response = await fetch(`${API_BASE_URL}/resources`, {
             method: 'POST',
-            headers: getAuthHeaders(),
-            body: JSON.stringify({ title, type, url, description, courseId: courseId || null })
+            headers: headers,
+            body: formData
         });
         const data = await response.json();
         

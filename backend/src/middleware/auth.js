@@ -24,11 +24,17 @@ const authMiddleware = (req, res, next) => {
             return res.status(401).json({ error: 'MISSING_TOKEN: No token found in header' });
         }
 
+        // Debug log for malformed tokens
+        if (token === 'undefined' || token === 'null') {
+            console.log('Auth Error: Token is literally "undefined" or "null" string');
+            return res.status(401).json({ error: 'INVALID_TOKEN_VALUE: Token is undefined/null string' });
+        }
+
         const decoded = jwt.verify(token, JWT_SECRET);
         req.user = decoded;
         next();
     } catch (error) {
-        console.log('Auth Error:', error.message);
+        console.log(`Auth Error: ${error.message}. Token start: ${req.headers.authorization?.split(' ')[1]?.substring(0, 10)}...`);
         return res.status(401).json({ error: `TOKEN_INVALID: ${error.message}` });
     }
 };

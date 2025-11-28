@@ -22,19 +22,13 @@ if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
 $rootPath = $PSScriptRoot
 
 # Start Backend Server
-Write-Host "[1/3] Starting Backend Server..." -ForegroundColor Green
+Write-Host "[1/2] Starting Backend Server..." -ForegroundColor Green
 $backendPath = Join-Path $rootPath "backend"
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$backendPath'; Write-Host 'Backend Server Running...' -ForegroundColor Green; node src/index.js"
 Start-Sleep -Seconds 3
 
-# Start AI Service
-Write-Host "[2/3] Starting AI Service..." -ForegroundColor Green
-$aiPath = Join-Path $rootPath "ai-service"
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$aiPath'; Write-Host 'AI Service Running...' -ForegroundColor Green; python app.py"
-Start-Sleep -Seconds 3
-
 # Start Frontend Server
-Write-Host "[3/3] Starting Frontend Server..." -ForegroundColor Green
+Write-Host "[2/2] Starting Frontend Server..." -ForegroundColor Green
 $frontendPath = Join-Path $rootPath "frontend"
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$frontendPath'; Write-Host 'Frontend Server Running...' -ForegroundColor Green; python -m http.server 8080"
 Start-Sleep -Seconds 3
@@ -51,7 +45,6 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "TutorPro is running!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "Backend:     http://localhost:3000" -ForegroundColor White
-Write-Host "AI Service:  http://localhost:5000" -ForegroundColor White
 Write-Host "Frontend:    http://localhost:8080" -ForegroundColor White
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""

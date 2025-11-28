@@ -47,14 +47,18 @@ exports.createCourse = (req, res) => {
 
 exports.enrollCourse = (req, res) => {
     const courseId = parseInt(req.params.id);
+    console.log(`User ${req.user.id} attempting to enroll in course ${courseId}`);
+    
     const course = courses.find(c => c.id === courseId);
     
     if (!course) {
+        console.log('Course not found');
         return res.status(404).json({ error: 'Course not found' });
     }
     
     // Check if already enrolled
     if (course.enrolledStudents && course.enrolledStudents.includes(req.user.id)) {
+        console.log('User already enrolled');
         return res.status(400).json({ error: 'Already enrolled in this course' });
     }
     
@@ -65,6 +69,7 @@ exports.enrollCourse = (req, res) => {
     
     course.enrolled++;
     course.enrolledStudents.push(req.user.id);
+    console.log(`Enrollment successful. Course ${courseId} now has students: [${course.enrolledStudents}]`);
     
     res.json({ 
         message: 'Enrolled successfully',
@@ -73,13 +78,20 @@ exports.enrollCourse = (req, res) => {
 };
 
 exports.getMyCourses = (req, res) => {
+    console.log('getMyCourses called for user:', req.user.id, req.user.role);
     let myCourses = [];
     
     if (req.user.role === 'student') {
-        myCourses = courses.filter(c => c.enrolledStudents && c.enrolledStudents.includes(req.user.id));
+        myCourses = courses.filter(c => {
+            const isEnrolled = c.enrolledStudents && c.enrolledStudents.includes(req.user.id);
+            // Debug log for each course check
+            // console.log(`Checking course ${c.id}: enrolledStudents=[${c.enrolledStudents}], userId=${req.user.id}, match=${isEnrolled}`);
+            return isEnrolled;
+        });
     } else if (req.user.role === 'tutor') {
         myCourses = courses.filter(c => c.tutorId === req.user.id);
     }
     
+    console.log(`Found ${myCourses.length} courses for user ${req.user.id}`);
     res.json({ courses: myCourses });
 };

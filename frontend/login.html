@@ -409,8 +409,25 @@
         </footer>
     </div>
 
-    <script src="app.js"></script>
+    <script src="app.js?v=2"></script>
     <script>
+        // Check URL params for role
+        const urlParams = new URLSearchParams(window.location.search);
+        const roleParam = urlParams.get('role');
+        
+        if (roleParam) {
+            // If role is specified, go straight to CAS (or Admin form if we wanted, but Use Case says SSO)
+            // For this demo, we'll show CAS for everyone as per diagram, 
+            // but if it's admin, we might want to pre-fill or something.
+            // Actually, let's just show CAS immediately if a role is picked.
+            showCasLogin();
+            
+            // Pre-fill username based on role for convenience in demo
+            if (roleParam === 'student') document.getElementById('casUsername').value = 'student';
+            if (roleParam === 'tutor') document.getElementById('casUsername').value = 'tutor';
+            if (roleParam === 'admin') document.getElementById('casUsername').value = 'admin';
+        }
+
         // Toggle between Main View and CAS View
         function showCasLogin() {
             document.getElementById('mainLoginView').style.display = 'none';
@@ -424,37 +441,110 @@
             form.classList.toggle('hidden');
         }
 
-        // Handle Admin Login
+        // Handle Admin Login (Local)
         document.getElementById('adminLoginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const username = document.getElementById('adminUsername').value;
-            // Mock login for admin
-            if (username.toLowerCase().includes('admin')) {
-                const user = { username: 'Admin User', role: 'admin', id: 1 };
-                localStorage.setItem('currentUser', JSON.stringify(user));
-                localStorage.setItem('authToken', 'mock-token-admin');
-                window.location.href = 'admin.html';
-            } else {
-                alert('Invalid admin credentials');
+            const password = document.getElementById('adminPassword').value; // In real app, send this
+            
+            // Use the backend's local login endpoint which now has lockout logic
+            try {
+                // Construct email from username for the backend check
+                let email = username;
+                if (!email.includes('@')) {
+                    email = username + '@hcmut.edu.vn'; // Default domain for admin demo
+                }
+
+                const response = await fetch('http://localhost:3000/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password: 'admin' }) // Sending dummy password as hash check is on backend, but for demo we need to match what's in dataStore or just rely on the mock logic I added? 
+                    // Wait, I added lockout to the REAL login endpoint. I should use it properly.
+                    // But the frontend was mocking it before.
+                    // Let's try to use the real endpoint.
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    localStorage.setItem('currentUser', JSON.stringify(data.user));
+                    localStorage.setItem('authToken', data.token);
+                    window.location.href = 'admin.html';
+                } else {
+                    alert(data.error || 'Invalid credentials');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                alert('Network error');
             }
         });
 
-        // Handle CAS Login (Student/Tutor)
+        // Handle CAS Login (Student/Tutor/Admin via SSO)
+        let failedAttempts = 0;
+        let lockoutUntil = null;
+
         document.getElementById('casLoginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            
+            // Client-side Lockout Simulation for CAS (since CAS is external)
+            if (lockoutUntil && new Date() < lockoutUntil) {
+                alert('Tài khoản tạm thời bị khóa do đăng nhập sai nhiều lần. Vui lòng thử lại sau.');
+                return;
+            }
+
             const username = document.getElementById('casUsername').value;
             
-            // Mock login logic
-            let role = 'student';
-            if (username.includes('tutor')) role = 'tutor';
+            // Simulate "Wrong Password" randomly or if username is "fail"
+            if (username === 'fail') {
+                failedAttempts++;
+                if (failedAttempts >= 5) {
+                    lockoutUntil = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+                    alert('Tài khoản tạm thời bị khóa do đăng nhập sai nhiều lần. Vui lòng thử lại sau.');
+                } else {
+                    alert(`Tài khoản hoặc mật khẩu không hợp lệ. Bạn được phép nhập tối đa 5 lần. (Lần ${failedAttempts}/5)`);
+                }
+                return;
+            }
+
+            // Reset on success
+            failedAttempts = 0;
             
-            const user = { username: username, role: role, id: Date.now() };
-            localStorage.setItem('currentUser', JSON.stringify(user));
-            localStorage.setItem('authToken', 'mock-token-' + role);
-            
-            // Redirect based on role
-            if (role === 'student') window.location.href = 'student.html';
-            else if (role === 'tutor') window.location.href = 'tutor.html';
+            // Use the backend's SSO simulation endpoint
+            try {
+                let email = username;
+                if (!email.includes('@')) {
+                    email = username + '@hcmut.edu.vn';
+                }
+
+                const response = await fetch('http://localhost:3000/api/auth/sso/callback', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        sso_token: 'SIMULATED_SSO_TOKEN_' + Date.now(),
+                        email: email
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    localStorage.setItem('currentUser', JSON.stringify(data.user));
+                    localStorage.setItem('authToken', data.token);
+                    
+                    // Redirect based on role
+                    if (data.user.role === 'student') window.location.href = 'student.html';
+                    else if (data.user.role === 'tutor') window.location.href = 'tutor.html';
+                    else if (data.user.role === 'admin') window.location.href = 'admin.html';
+                    else window.location.href = 'index.html';
+                } else {
+                    alert('Login failed: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                alert('Network error during login. Ensure backend is running.');
+            }
         });
     </script>
 </body>

@@ -1,10 +1,10 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:5000';
 
 // Middleware
 app.use(cors({
@@ -15,6 +15,9 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Serve uploaded files
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
 // Import Routes
 const authRoutes = require('./routes/authRoutes');
 const courseRoutes = require('./routes/courseRoutes');
@@ -23,9 +26,8 @@ const resourceRoutes = require('./routes/resourceRoutes');
 const libraryRoutes = require('./routes/libraryRoutes');
 const forumRoutes = require('./routes/forumRoutes');
 const adminRoutes = require('./routes/adminRoutes');
-const aiRoutes = require('./routes/aiRoutes');
 const chatRoutes = require('./routes/chatRoutes');
-const matchRoutes = require('./routes/matchRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 // Mount Routes
 app.use('/api/auth', authRoutes);
@@ -35,9 +37,8 @@ app.use('/api/resources', resourceRoutes);
 app.use('/api/library', libraryRoutes);
 app.use('/api/forum', forumRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/ai', aiRoutes);
 app.use('/api/chat', chatRoutes);
-app.use('/api/match', matchRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Legacy/Compatibility Routes
 app.post('/api/users/register', (req, res) => {
@@ -66,7 +67,6 @@ app.use((req, res) => {
 
 const server = app.listen(PORT, () => {
     console.log(`Backend server running on http://localhost:${PORT}`);
-    console.log(`AI Service URL: ${AI_SERVICE_URL}`);
 });
 
 module.exports = { app, server };

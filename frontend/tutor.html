@@ -139,8 +139,8 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label for="resourceUrl">URL/Link</label>
-                            <input type="url" id="resourceUrl" placeholder="https://...">
+                            <label for="resourceFile">Upload File</label>
+                            <input type="file" id="resourceFile" required>
                         </div>
                         <div class="form-group">
                             <label for="resourceDescription">Description</label>
@@ -201,7 +201,7 @@
         </main>
     </div>
 
-    <script src="app.js"></script>
+    <script src="app.js?v=2"></script>
     <script>
         function showTab(tabName) {
             document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));

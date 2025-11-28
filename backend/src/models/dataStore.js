@@ -64,12 +64,15 @@ const emailLogs = [];
 const forumPosts = [];
 const forumComments = [];
 const ssoTokens = {};
+const loginAttempts = {}; // { email: { count: 0, lockUntil: null } }
 
 // Mock Data for Integrations
 const datacoreRecords = [
-    { studentId: '2012345', name: 'Nguyen Van A', email: 'a.nguyen@hcmut.edu.vn', faculty: 'Computer Science', year: 2020, verified: true },
-    { studentId: '2012346', name: 'Tran Thi B', email: 'b.tran@hcmut.edu.vn', faculty: 'Electrical Engineering', year: 2021, verified: true },
-    { studentId: '2012347', name: 'Le Van C', email: 'c.le@hcmut.edu.vn', faculty: 'Mechanical Engineering', year: 2019, verified: true }
+    { studentId: '2012345', name: 'Nguyen Van A', email: 'a.nguyen@hcmut.edu.vn', faculty: 'Computer Science', year: 2020, verified: true, role: 'student' },
+    { studentId: '2012346', name: 'Tran Thi B', email: 'b.tran@hcmut.edu.vn', faculty: 'Electrical Engineering', year: 2021, verified: true, role: 'student' },
+    { studentId: '2012347', name: 'Le Van C', email: 'c.le@hcmut.edu.vn', faculty: 'Mechanical Engineering', year: 2019, verified: true, role: 'student' },
+    { studentId: null, name: 'Dr. Tutor', email: 'tutor@hcmut.edu.vn', faculty: 'Computer Science', year: null, verified: true, role: 'tutor' },
+    { studentId: null, name: 'Admin Staff', email: 'admin@hcmut.edu.vn', faculty: 'Academic Affairs', year: null, verified: true, role: 'admin' }
 ];
 
 const libraryResources = [
@@ -91,6 +94,7 @@ module.exports = {
     forumPosts,
     forumComments,
     ssoTokens,
+    loginAttempts,
     datacoreRecords,
     libraryResources
 };

@@ -35,26 +35,6 @@
                     <h3>My Enrolled Courses</h3>
                     <div id="myEnrolledCourses" class="courses-grid"></div>
                 </div>
-                
-                <div class="dashboard-section">
-                    <h3>Recommended Tutors</h3>
-                    <div class="filters" style="margin-bottom: 1rem;">
-                        <select id="matchSubjectFilter">
-                            <option value="">All Subjects</option>
-                            <option value="math">Mathematics</option>
-                            <option value="science">Science</option>
-                            <option value="programming">Programming</option>
-                        </select>
-                        <select id="matchLevelFilter">
-                            <option value="">All Levels</option>
-                            <option value="beginner">Beginner</option>
-                            <option value="intermediate">Intermediate</option>
-                            <option value="advanced">Advanced</option>
-                        </select>
-                        <button class="btn btn-primary" onclick="loadRecommendedTutors()">Find Tutors</button>
-                    </div>
-                    <div id="recommendedTutorsList"></div>
-                </div>
             </div>
 
             <!-- Courses Tab -->
@@ -145,7 +125,7 @@
         </main>
     </div>
 
-    <script src="app.js"></script>
+    <script src="app.js?v=2"></script>
     <script>
         // Tab switching logic
         function showTab(tabName) {
@@ -157,6 +137,13 @@
             const selectedTab = document.getElementById(`tab-${tabName}`);
             if (selectedTab) {
                 selectedTab.classList.remove('hidden');
+                
+                // Refresh data when switching to dashboard
+                if (tabName === 'dashboard') {
+                    if (typeof loadEnrolledCourses === 'function') {
+                        loadEnrolledCourses();
+                    }
+                }
             } else {
                 // If it's a section (like chat or notifications)
                 const section = document.getElementById(tabName);

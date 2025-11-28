@@ -3,10 +3,15 @@ const { resources, courses, libraryResources } = require('../models/dataStore');
 let resourceIdCounter = 1;
 
 exports.createResource = (req, res) => {
-    const { title, type, url, courseId, description } = req.body;
+    const { title, type, courseId, description } = req.body;
+    const file = req.file;
     
-    if (!title || !type || !url || !courseId) {
+    if (!title || !type || !courseId) {
         return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    if (!file) {
+        return res.status(400).json({ error: 'File upload required' });
     }
     
     const course = courses.find(c => c.id === parseInt(courseId));
@@ -19,11 +24,15 @@ exports.createResource = (req, res) => {
         return res.status(403).json({ error: 'Not authorized to upload resources for this course' });
     }
     
+    const protocol = req.protocol;
+    const host = req.get('host');
+    const fullUrl = `${protocol}://${host}/uploads/${file.filename}`;
+
     const resource = {
         id: resourceIdCounter++,
         title,
         type, // pdf, video, link, doc
-        url,
+        url: fullUrl,
         courseId: parseInt(courseId),
         description: description || '',
         uploadedBy: req.user.id,
