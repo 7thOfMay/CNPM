@@ -13,9 +13,22 @@ exports.register = async (req, res) => {
         if (!username || !email || !password || !role) {
             return res.status(400).json({ error: 'All fields are required' });
         }
+
+        if (password.length < 6) {
+            return res.status(400).json({ error: 'Password must be at least 6 characters' });
+        }
+
+        if (role === 'admin') {
+            return res.status(400).json({ error: 'Invalid role: Admin registration is not allowed via public API' });
+        }
+
+        const validRoles = ['student', 'tutor'];
+        if (!validRoles.includes(role)) {
+            return res.status(400).json({ error: 'Invalid role' });
+        }
         
         if (users.find(u => u.email === email)) {
-            return res.status(400).json({ error: 'Email already exists' });
+            return res.status(409).json({ error: 'Email already exists' });
         }
         
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -40,7 +53,10 @@ exports.register = async (req, res) => {
                 id: newUser.id,
                 username: newUser.username,
                 email: newUser.email,
-                role: newUser.role
+                role: newUser.role,
+                fullName: newUser.fullName,
+                studentId: newUser.studentId,
+                faculty: newUser.faculty
             }
         });
     } catch (error) {
@@ -51,6 +67,10 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
     try {
         const { email, password } = req.body;
+        
+        if (!email || !password) {
+            return res.status(400).json({ error: 'Email and password are required' });
+        }
         
         // Check Lockout
         if (loginAttempts[email]) {
@@ -92,7 +112,10 @@ exports.login = async (req, res) => {
                 id: user.id,
                 username: user.username,
                 email: user.email,
-                role: user.role
+                role: user.role,
+                fullName: user.fullName,
+                studentId: user.studentId,
+                faculty: user.faculty
             }
         });
     } catch (error) {
@@ -184,8 +207,28 @@ exports.ssoCallback = async (req, res) => {
             id: user.id,
             username: user.username,
             email: user.email,
-            role: user.role
+            role: user.role,
+            fullName: user.fullName,
+            studentId: user.studentId,
+            faculty: user.faculty
         },
         message: 'SSO authentication successful'
+    });
+};
+
+exports.getMe = (req, res) => {
+    const user = users.find(u => u.id === req.user.id);
+    if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+    }
+    
+    res.json({
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        fullName: user.fullName,
+        studentId: user.studentId,
+        faculty: user.faculty
     });
 };

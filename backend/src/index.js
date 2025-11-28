@@ -29,6 +29,9 @@ const adminRoutes = require('./routes/adminRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const progressRoutes = require('./routes/progressRoutes');
+const profileRoutes = require('./routes/profileRoutes');
+const matchRoutes = require('./routes/matchRoutes');
+const ratingRoutes = require('./routes/ratingRoutes');
 
 // Mount Routes
 app.use('/api/auth', authRoutes);
@@ -41,6 +44,9 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/progress', progressRoutes);
+app.use('/api/profile', profileRoutes);
+app.use('/api/match', matchRoutes);
+app.use('/api/ratings', ratingRoutes);
 
 // Legacy/Compatibility Routes
 app.post('/api/users/register', (req, res) => {
@@ -67,8 +73,10 @@ app.use((req, res) => {
     res.status(404).json({ error: 'Route not found' });
 });
 
-const server = app.listen(PORT, () => {
-    console.log(`Backend server running on http://localhost:${PORT}`);
-});
+if (require.main === module) {
+    const server = app.listen(PORT, () => {
+        console.log(`Backend server running on http://localhost:${PORT}`);
+    });
+}
 
-module.exports = { app, server };
+module.exports = { app };

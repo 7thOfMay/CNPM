@@ -27,7 +27,11 @@ function createNotification(userId, title, message, type = 'info') {
 }
 
 exports.createSession = (req, res) => {
-    const { courseId, date, startTime, endTime, maxStudents, location, description } = req.body;
+    const { 
+        courseId, date, startTime, endTime, maxStudents, location, description, 
+        isRecurring, recurrenceWeeks,
+        type, goals, materials, invitedStudents 
+    } = req.body;
     
     if (!courseId || !date || !startTime || !endTime) {
         return res.status(400).json({ error: 'Missing required fields' });
@@ -41,37 +45,113 @@ exports.createSession = (req, res) => {
     if (course.tutorId !== req.user.id && req.user.role !== 'admin') {
         return res.status(403).json({ error: 'Not authorized to create sessions for this course' });
     }
-    
-    const session = {
-        id: sessionIdCounter++,
-        courseId: parseInt(courseId),
-        tutorId: req.user.id,
-        date,
-        startTime,
-        endTime,
-        maxStudents: parseInt(maxStudents) || 1,
-        location: location || 'Online',
-        description: description || '',
-        status: 'scheduled', // scheduled, completed, cancelled
-        bookedStudents: [], // Array of student IDs
-        createdAt: new Date().toISOString()
+
+    // Conflict Check
+    const tutorSessions = sessions.filter(s => s.tutorId === req.user.id && s.status !== 'cancelled');
+    const newStart = new Date(`${date}T${startTime}`);
+    const newEnd = new Date(`${date}T${endTime}`);
+
+    const hasConflict = (checkDate, checkStart, checkEnd) => {
+        return tutorSessions.some(s => {
+            if (s.date !== checkDate) return false;
+            const existingStart = new Date(`${s.date}T${s.startTime}`);
+            const existingEnd = new Date(`${s.date}T${s.endTime}`);
+            return (checkStart < existingEnd && checkEnd > existingStart);
+        });
     };
+
+    if (hasConflict(date, newStart, newEnd)) {
+        return res.status(409).json({ 
+            error: 'Schedule Conflict', 
+            message: 'You already have a session scheduled during this time slot.',
+            suggestion: 'Please choose a different time or date.'
+        });
+    }
     
-    sessions.push(session);
+    const createdSessions = [];
+    const weeks = isRecurring ? (parseInt(recurrenceWeeks) || 1) : 1;
+    let currentDate = new Date(date);
+
+    // Validate invites
+    let validInvites = [];
+    if (invitedStudents && Array.isArray(invitedStudents)) {
+        // Ensure they are numbers
+        validInvites = invitedStudents.map(id => parseInt(id));
+        if (validInvites.length > (parseInt(maxStudents) || 1)) {
+             return res.status(400).json({ error: 'Cannot invite more students than the maximum capacity.' });
+        }
+    }
+
+    for (let i = 0; i < weeks; i++) {
+        const sessionDateStr = currentDate.toISOString().split('T')[0];
+        
+        // Check conflict for recurring instances
+        if (i > 0) { // First one already checked
+             const currentStart = new Date(`${sessionDateStr}T${startTime}`);
+             const currentEnd = new Date(`${sessionDateStr}T${endTime}`);
+             if (hasConflict(sessionDateStr, currentStart, currentEnd)) {
+                 currentDate.setDate(currentDate.getDate() + 7);
+                 continue;
+             }
+        }
+
+        const session = {
+            id: sessionIdCounter++,
+            courseId: parseInt(courseId),
+            tutorId: req.user.id,
+            date: sessionDateStr,
+            startTime,
+            endTime,
+            maxStudents: parseInt(maxStudents) || 1,
+            location: location || 'Online',
+            description: description || '',
+            status: 'scheduled', // scheduled, completed, cancelled
+            bookedStudents: [...validInvites], // Auto-book invited students
+            createdAt: new Date().toISOString(),
+            // New Fields
+            type: type || ((parseInt(maxStudents) || 1) > 1 ? 'group' : '1-1'),
+            goals: goals || '',
+            materials: materials || []
+        };
+        
+        sessions.push(session);
+        createdSessions.push(session);
+        
+        // Move to next week
+        currentDate.setDate(currentDate.getDate() + 7);
+    }
     
-    // Notify enrolled students
+    // Notify enrolled students (General Alert)
     if (course.enrolledStudents && course.enrolledStudents.length > 0) {
         course.enrolledStudents.forEach(studentId => {
+            // Don't notify if they are already invited (they get a specific invite below)
+            if (!validInvites.includes(studentId)) {
+                createNotification(
+                    studentId,
+                    'New Sessions Available',
+                    `New sessions for ${course.title} have been scheduled starting ${date}.`,
+                    'session_alert'
+                );
+            }
+        });
+    }
+
+    // Notify Invited Students (Specific Invite)
+    if (validInvites.length > 0) {
+        validInvites.forEach(studentId => {
             createNotification(
                 studentId,
-                'New Session Available',
-                `A new session for ${course.title} has been scheduled on ${date} at ${startTime}.`,
-                'session_alert'
+                'Session Invitation',
+                `You have been invited to a session for ${course.title} on ${date} at ${startTime}.`,
+                'invitation'
             );
         });
     }
     
-    res.status(201).json(session);
+    res.status(201).json({ 
+        message: `Successfully created ${createdSessions.length} sessions.`,
+        sessions: createdSessions 
+    });
 };
 
 exports.getSessions = (req, res) => {
@@ -190,11 +270,12 @@ exports.updateSession = (req, res) => {
         return res.status(403).json({ error: 'Not authorized' });
     }
     
-    const { status, location, description } = req.body;
+    const { status, location, description, meetingMinutes } = req.body;
     
     if (status) session.status = status;
     if (location) session.location = location;
     if (description) session.description = description;
+    if (meetingMinutes) session.meetingMinutes = meetingMinutes;
     
     // Notify students if cancelled
     if (status === 'cancelled') {

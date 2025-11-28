@@ -11,7 +11,20 @@ const users = [
         createdAt: new Date().toISOString()
     },
     // Tutors
-    { id: 2, username: 'tutor_demo', email: 'tutor_demo@hcmut.edu.vn', password: '$2a$10$a/7gYlRcekT5S3fQzgPc9uqhZ6b9BQjYampHyNLia6R.TyejOSZKS', role: 'tutor', createdAt: new Date().toISOString() },
+    { 
+        id: 2, 
+        username: 'tutor_demo', 
+        email: 'tutor_demo@hcmut.edu.vn', 
+        password: '$2a$10$a/7gYlRcekT5S3fQzgPc9uqhZ6b9BQjYampHyNLia6R.TyejOSZKS', 
+        role: 'tutor', 
+        createdAt: new Date().toISOString(),
+        fullName: 'Nguyen Van Tutor',
+        phone: '0901234567',
+        address: '123 Ly Thuong Kiet, D10, HCMC',
+        faculty: 'Computer Science',
+        skills: ['C++', 'Java', 'Python'],
+        bio: 'Experienced tutor in programming fundamentals.'
+    },
     { id: 3, username: 'tutor_math', email: 'math@hcmut.edu.vn', password: '$2a$10$a/7gYlRcekT5S3fQzgPc9uqhZ6b9BQjYampHyNLia6R.TyejOSZKS', role: 'tutor', createdAt: new Date().toISOString() },
     { id: 4, username: 'tutor_physics', email: 'physics@hcmut.edu.vn', password: '$2a$10$a/7gYlRcekT5S3fQzgPc9uqhZ6b9BQjYampHyNLia6R.TyejOSZKS', role: 'tutor', createdAt: new Date().toISOString() },
     { id: 5, username: 'tutor_english', email: 'english@hcmut.edu.vn', password: '$2a$10$a/7gYlRcekT5S3fQzgPc9uqhZ6b9BQjYampHyNLia6R.TyejOSZKS', role: 'tutor', createdAt: new Date().toISOString() },
@@ -20,7 +33,20 @@ const users = [
     { id: 8, username: 'tutor_general', email: 'general@hcmut.edu.vn', password: '$2a$10$a/7gYlRcekT5S3fQzgPc9uqhZ6b9BQjYampHyNLia6R.TyejOSZKS', role: 'tutor', createdAt: new Date().toISOString() },
     
     // Students
-    { id: 100, username: 'student_demo', email: 'student_demo@hcmut.edu.vn', password: '$2a$10$a/7gYlRcekT5S3fQzgPc9uqhZ6b9BQjYampHyNLia6R.TyejOSZKS', role: 'student', createdAt: new Date().toISOString() },
+    { 
+        id: 100, 
+        username: 'student_demo', 
+        email: 'student_demo@hcmut.edu.vn', 
+        password: '$2a$10$a/7gYlRcekT5S3fQzgPc9uqhZ6b9BQjYampHyNLia6R.TyejOSZKS', 
+        role: 'student', 
+        createdAt: new Date().toISOString(),
+        fullName: 'Tran Van Student',
+        studentId: '2010001',
+        phone: '0909876543',
+        address: '456 Nguyen Van Cu, D5, HCMC',
+        faculty: 'Computer Science',
+        bio: 'Eager to learn.'
+    },
     { id: 101, username: 'student_1', email: 'student1@hcmut.edu.vn', password: '$2a$10$a/7gYlRcekT5S3fQzgPc9uqhZ6b9BQjYampHyNLia6R.TyejOSZKS', role: 'student', createdAt: new Date().toISOString() },
     { id: 102, username: 'student_2', email: 'student2@hcmut.edu.vn', password: '$2a$10$a/7gYlRcekT5S3fQzgPc9uqhZ6b9BQjYampHyNLia6R.TyejOSZKS', role: 'student', createdAt: new Date().toISOString() },
     { id: 103, username: 'student_3', email: 'student3@hcmut.edu.vn', password: '$2a$10$a/7gYlRcekT5S3fQzgPc9uqhZ6b9BQjYampHyNLia6R.TyejOSZKS', role: 'student', createdAt: new Date().toISOString() },
@@ -123,9 +149,48 @@ const sessions = [
 ];
 
 const ratings = [
-    { id: 1, tutorId: 2, rating: 5, comment: "Great explanation of loops!" },
-    { id: 2, tutorId: 2, rating: 4, comment: "Very helpful with C++ syntax." },
-    { id: 3, tutorId: 3, rating: 5, comment: "Calculus made easy." }
+    { 
+        id: 1, 
+        tutorId: 2, 
+        studentId: 100,
+        sessionId: 1,
+        rating: 9, // Overall
+        criteria: {
+            communication: 9,
+            expertise: 10,
+            punctuality: 8
+        },
+        comment: "Great explanation of loops!",
+        createdAt: new Date().toISOString()
+    },
+    { 
+        id: 2, 
+        tutorId: 2, 
+        studentId: 101,
+        sessionId: 1,
+        rating: 8, 
+        criteria: {
+            communication: 8,
+            expertise: 9,
+            punctuality: 7
+        },
+        comment: "Very helpful with C++ syntax.",
+        createdAt: new Date().toISOString()
+    },
+    { 
+        id: 3, 
+        tutorId: 3, 
+        studentId: 100,
+        sessionId: 3,
+        rating: 10, 
+        criteria: {
+            communication: 10,
+            expertise: 10,
+            punctuality: 10
+        },
+        comment: "Calculus made easy.",
+        createdAt: new Date().toISOString()
+    }
 ];
 const notifications = [];
 
@@ -135,12 +200,28 @@ let recordId = 1;
 
 courses.forEach(course => {
     course.enrolledStudents.forEach(studentId => {
-        // Random grade between 5.0 and 10.0
-        const grade = (Math.random() * 5 + 5).toFixed(1);
+        // Random grade components
+        const midtermScore = (Math.random() * 4 + 6).toFixed(1); // 6.0 - 10.0
+        const assignmentScore = (Math.random() * 3 + 7).toFixed(1); // 7.0 - 10.0
+        const labScore = (Math.random() * 3 + 7).toFixed(1); // 7.0 - 10.0
+        const finalScore = (Math.random() * 5 + 5).toFixed(1); // 5.0 - 10.0
+        
+        // Weighted Average: 20% Midterm, 20% Assignment, 20% Lab, 40% Final
+        const grade = (
+            parseFloat(midtermScore) * 0.2 + 
+            parseFloat(assignmentScore) * 0.2 + 
+            parseFloat(labScore) * 0.2 + 
+            parseFloat(finalScore) * 0.4
+        ).toFixed(1);
+
         progressRecords.push({
             id: recordId++,
             studentId: studentId,
             courseId: course.id,
+            midtermScore: parseFloat(midtermScore),
+            assignmentScore: parseFloat(assignmentScore),
+            labScore: parseFloat(labScore),
+            finalScore: parseFloat(finalScore),
             grade: parseFloat(grade),
             semester: course.id <= 6 ? 'HK1' : (course.id <= 14 ? 'HK2' : 'HK3'),
             completed: true
@@ -157,6 +238,8 @@ const loginAttempts = {};
 
 // Mock Data for Integrations
 const datacoreRecords = [
+    { studentId: '2010001', name: 'Tran Van Student (Official)', email: 'student_demo@hcmut.edu.vn', faculty: 'Computer Science', year: 2022, verified: true, role: 'student' },
+    { studentId: null, name: 'Nguyen Van Tutor (Official)', email: 'tutor_demo@hcmut.edu.vn', faculty: 'Computer Science', year: null, verified: true, role: 'tutor' },
     { studentId: '2012345', name: 'Nguyen Van A', email: 'a.nguyen@hcmut.edu.vn', faculty: 'Computer Science', year: 2020, verified: true, role: 'student' },
     { studentId: '2012346', name: 'Tran Thi B', email: 'b.tran@hcmut.edu.vn', faculty: 'Electrical Engineering', year: 2021, verified: true, role: 'student' },
     { studentId: '2012347', name: 'Le Van C', email: 'c.le@hcmut.edu.vn', faculty: 'Mechanical Engineering', year: 2019, verified: true, role: 'student' },
@@ -170,6 +253,12 @@ const libraryResources = [
     { id: 3, title: 'Calculus Early Transcendentals', author: 'Stewart', category: 'Mathematics', available: true, link: 'http://library.hcmut.edu.vn/book/3' },
     { id: 4, title: 'Data Structures and Algorithms in Java', author: 'Goodrich', category: 'Computer Science', available: false, link: 'http://library.hcmut.edu.vn/book/4' }
 ];
+
+const studentNotes = [
+    { id: 1, studentId: 100, courseId: 5, tutorId: 2, note: 'Struggling with pointers. Needs extra practice.', createdAt: new Date().toISOString() }
+];
+
+const tutorSelections = [];
 
 module.exports = {
     users,
@@ -185,5 +274,7 @@ module.exports = {
     ssoTokens,
     loginAttempts,
     datacoreRecords,
-    libraryResources
+    libraryResources,
+    studentNotes,
+    tutorSelections
 };

@@ -18,7 +18,9 @@
                     <a href="#dashboard" class="active" onclick="showTab('dashboard')">Dashboard</a>
                     <a href="#courses" onclick="showTab('courses')">My Courses</a>
                     <a href="#sessions" onclick="showTab('sessions')">Sessions</a>
+                    <a href="#ratings" onclick="showTab('ratings')">Ratings</a>
                     <a href="#resources" onclick="showTab('resources')">Resources</a>
+                    <a href="#profile" onclick="showTab('profile')">Profile</a>
                     <a href="#chat" id="chatLink" onclick="showTab('chat')">Messages <span id="unreadBadge" class="badge hidden">0</span></a>
                     <a href="#notifications" id="notificationsLink" onclick="showTab('notifications')">Notifications <span id="notificationBadge" class="badge hidden">0</span></a>
                     <button id="logoutBtn" class="btn btn-small">Logout</button>
@@ -81,8 +83,19 @@
                     <form id="createSessionForm" class="form">
                         <div class="form-group">
                             <label for="sessionCourse">Course</label>
-                            <select id="sessionCourse" required></select>
+                            <select id="sessionCourse" required onchange="loadCourseStudents()">
+                                <option value="">Select a course...</option>
+                            </select>
                         </div>
+                        
+                        <div class="form-group">
+                            <label>Session Format</label>
+                            <div style="display: flex; gap: 1rem;">
+                                <label style="font-weight: normal;"><input type="radio" name="sessionFormat" value="1-1" checked onchange="toggleFormat('1-1')"> 1:1 Consultation</label>
+                                <label style="font-weight: normal;"><input type="radio" name="sessionFormat" value="group" onchange="toggleFormat('group')"> Group Session</label>
+                            </div>
+                        </div>
+
                         <div class="form-group">
                             <label for="sessionDate">Date</label>
                             <input type="date" id="sessionDate" required>
@@ -95,21 +108,68 @@
                             <label for="sessionEndTime">End Time</label>
                             <input type="time" id="sessionEndTime" required>
                         </div>
+                        
+                        <!-- Recurring Options -->
+                        <div class="form-group">
+                            <label>Session Type</label>
+                            <div style="display: flex; gap: 1rem; align-items: center;">
+                                <label style="font-weight: normal;"><input type="radio" name="sessionType" value="one-time" checked onchange="toggleRecurrence(false)"> One-time</label>
+                                <label style="font-weight: normal;"><input type="radio" name="sessionType" value="recurring" onchange="toggleRecurrence(true)"> Recurring (Weekly)</label>
+                            </div>
+                        </div>
+                        <div id="recurrenceOptions" class="form-group hidden">
+                            <label for="sessionWeeks">Repeat for (weeks)</label>
+                            <input type="number" id="sessionWeeks" value="4" min="2" max="12">
+                        </div>
+
                         <div class="form-group">
                             <label for="sessionMaxStudents">Max Students</label>
-                            <input type="number" id="sessionMaxStudents" value="10" min="1" max="50">
+                            <input type="number" id="sessionMaxStudents" value="1" min="1" max="50">
                         </div>
                         <div class="form-group">
-                            <label for="sessionLocation">Location</label>
-                            <input type="text" id="sessionLocation" placeholder="Online or physical address">
+                            <label for="sessionLocation">Location / Link</label>
+                            <input type="text" id="sessionLocation" placeholder="Online link or physical address">
                         </div>
                         <div class="form-group">
                             <label for="sessionDescription">Description</label>
                             <textarea id="sessionDescription" rows="3"></textarea>
                         </div>
-                        <button type="submit" class="btn btn-primary">Create Session</button>
+
+                        <div class="form-group">
+                            <label for="sessionGoals">Goals / Expected Outcomes</label>
+                            <textarea id="sessionGoals" rows="2" placeholder="e.g., Review Chapter 4, Solve Practice Problems"></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Learning Materials (HCMUT_LIBRARY)</label>
+                            <div id="materialsList" style="margin-bottom: 0.5rem; font-size: 0.9rem; color: #666; font-style: italic;">No materials attached</div>
+                            <button type="button" class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;" onclick="openLibraryMock()">+ Attach from Library</button>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Invite Students (Optional)</label>
+                            <select id="sessionInvites" multiple style="width: 100%; height: 80px; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                <option value="" disabled>Select a course first to see students</option>
+                            </select>
+                            <small style="color: #666; font-size: 0.8rem;">Hold Ctrl (Cmd) to select multiple students</small>
+                        </div>
+
+                        <div style="display: flex; gap: 1rem;">
+                            <button type="submit" class="btn btn-primary">Publish Sessions</button>
+                            <button type="button" class="btn btn-secondary" onclick="importCalendar()">Import from Calendar</button>
+                        </div>
                     </form>
                     <div id="createSessionMessage" class="message"></div>
+                </div>
+            </div>
+
+            <!-- Ratings Tab -->
+            <div id="tab-ratings" class="tab-content hidden">
+                <div class="dashboard-section">
+                    <h3>Student Ratings & Feedback</h3>
+                    <div id="tutorRatingsList">
+                        <p>Loading ratings...</p>
+                    </div>
                 </div>
             </div>
 
@@ -147,6 +207,58 @@
                     </form>
                     <div id="createResourceMessage" class="message"></div>
                     <div id="tutorResourcesList" class="resource-list"></div>
+                </div>
+            </div>
+
+            <!-- Profile Tab -->
+            <div id="tab-profile" class="tab-content hidden">
+                <div class="dashboard-section" style="background: transparent; box-shadow: none; padding: 0;">
+                    <div class="profile-container" style="display: grid; grid-template-columns: 300px 1fr; gap: 2rem; align-items: start;">
+                        <!-- Left Column: Identity -->
+                        <div class="profile-sidebar" style="background: white; padding: 2rem; border-radius: 8px; box-shadow: var(--shadow-sm); text-align: center;">
+                            <div class="profile-avatar" style="width: 120px; height: 120px; margin: 0 auto 1.5rem; font-size: 3rem; display: flex; align-items: center; justify-content: center; background: var(--primary-blue); color: white; border-radius: 50%;">
+                                <span id="profileAvatarInitials">--</span>
+                            </div>
+                            <h2 id="profileName" style="font-size: 1.5rem; margin-bottom: 0.5rem;">Loading...</h2>
+                            <p id="profileEmail" style="color: var(--text-secondary); margin-bottom: 1rem;">loading...</p>
+                            <div id="profileRole" class="role-badge" style="margin-bottom: 2rem; display: inline-block;">Tutor</div>
+                            
+                            <div style="text-align: left; border-top: 1px solid var(--border-light); padding-top: 1.5rem;">
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label style="font-size: 0.9rem; color: var(--text-secondary);">Faculty</label>
+                                    <input type="text" id="profileFaculty" disabled style="background: transparent; border: none; font-weight: 600; color: var(--text-primary); padding: 0; width: 100%;">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right Column: Edit Form -->
+                        <div class="profile-content" style="background: white; padding: 2.5rem; border-radius: 8px; box-shadow: var(--shadow-sm);">
+                            <h3 style="margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-light);">Edit Profile</h3>
+                            <form id="profileForm" onsubmit="handleProfileUpdate(event)">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                                    <div class="form-group">
+                                        <label>Phone Number</label>
+                                        <input type="tel" id="profilePhone" placeholder="Enter phone number">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Address</label>
+                                        <input type="text" id="profileAddress" placeholder="Enter address">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Skills (Comma separated)</label>
+                                    <input type="text" id="profileSkills" placeholder="e.g. C++, Java, Machine Learning">
+                                </div>
+                                <div class="form-group">
+                                    <label>Bio</label>
+                                    <textarea id="profileBio" rows="5" placeholder="Tell us about yourself..."></textarea>
+                                </div>
+                                <div style="text-align: right;">
+                                    <button type="submit" class="btn btn-primary" style="padding: 0.75rem 2rem;">Save Changes</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -222,8 +334,113 @@
         </div>
     </div>
 
+    <!-- Student Progress Detail Modal -->
+    <div id="studentProgressModal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeStudentProgressModal()">&times;</span>
+            <h2 id="progressStudentName">Student Progress</h2>
+            <div id="progressRiskBadge" class="risk-badge" style="margin-bottom: 1rem;"></div>
+            
+            <div class="dashboard-section">
+                <h4>Performance Stats</h4>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3 id="progressGrade">--</h3>
+                        <p>Current Grade</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="progressAttendance">--%</h3>
+                        <p>Attendance</p>
+                    </div>
+                </div>
+                <div id="progressRiskReason" style="color: var(--danger-red); margin-top: 0.5rem; font-weight: bold;"></div>
+            </div>
+
+            <div class="dashboard-section">
+                <h4>Tutor Notes & Interventions</h4>
+                <div id="progressNotesList" style="max-height: 150px; overflow-y: auto; margin-bottom: 1rem; border: 1px solid #eee; padding: 0.5rem;"></div>
+                <form id="addNoteForm" onsubmit="handleAddNote(event)">
+                    <div class="form-group">
+                        <textarea id="newNoteContent" rows="2" placeholder="Add a note or feedback..." required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-small btn-primary">Add Note</button>
+                </form>
+            </div>
+
+            <div class="dashboard-section">
+                <h4>Actions</h4>
+                <button class="btn btn-primary" onclick="scheduleFollowUp()">Schedule Follow-up Session</button>
+                <button class="btn btn-secondary" onclick="sendReminder()">Send Reminder</button>
+            </div>
+        </div>
+    </div>
+
     <script src="app.js?v=2"></script>
     <script>
+        let attachedMaterials = [];
+
+        function toggleRecurrence(show) {
+            const el = document.getElementById('recurrenceOptions');
+            if (show) el.classList.remove('hidden');
+            else el.classList.add('hidden');
+        }
+
+        function toggleFormat(format) {
+            const maxInput = document.getElementById('sessionMaxStudents');
+            if (format === '1-1') {
+                maxInput.value = 1;
+                // maxInput.disabled = true; // Optional: lock it
+            } else {
+                maxInput.value = 10;
+                maxInput.disabled = false;
+            }
+        }
+
+        function openLibraryMock() {
+            // Mock HCMUT_LIBRARY integration
+            const mockDocs = [
+                "Calculus I - Chapter 4 Summary.pdf",
+                "Physics Lab Manual 2024.docx",
+                "Intro to Programming - Week 5 Slides.pptx",
+                "Advanced Algorithms - Graph Theory Notes.pdf"
+            ];
+            
+            const randomDoc = mockDocs[Math.floor(Math.random() * mockDocs.length)];
+            
+            if (confirm(`HCMUT_LIBRARY\n\nFound document: "${randomDoc}"\n\nDo you want to attach this file?`)) {
+                attachedMaterials.push(randomDoc);
+                updateMaterialsList();
+            }
+        }
+
+        function updateMaterialsList() {
+            const list = document.getElementById('materialsList');
+            if (attachedMaterials.length === 0) {
+                list.innerHTML = 'No materials attached';
+                list.style.fontStyle = 'italic';
+            } else {
+                list.innerHTML = attachedMaterials.map(m => `<div>📎 ${m} <span style="cursor:pointer;color:red;margin-left:5px;" onclick="removeMaterial('${m}')">×</span></div>`).join('');
+                list.style.fontStyle = 'normal';
+            }
+        }
+
+        function removeMaterial(name) {
+            attachedMaterials = attachedMaterials.filter(m => m !== name);
+            updateMaterialsList();
+        }
+
+        function importCalendar() {
+            // Mock Import
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = '.ics,.csv';
+            fileInput.onchange = e => {
+                alert('Calendar imported successfully! 3 potential slots identified. Please review and publish.');
+                // In a real app, we would parse the ICS file and populate the form or create draft sessions
+            };
+            fileInput.click();
+        }
+
         function showTab(tabName) {
             document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
             document.querySelectorAll('.section').forEach(sec => sec.classList.add('hidden'));
@@ -231,6 +448,16 @@
             const selectedTab = document.getElementById(`tab-${tabName}`);
             if (selectedTab) {
                 selectedTab.classList.remove('hidden');
+                
+                if (tabName === 'profile') {
+                    if (typeof loadProfile === 'function') {
+                        loadProfile();
+                    }
+                } else if (tabName === 'ratings') {
+                    if (typeof loadTutorRatings === 'function') {
+                        loadTutorRatings();
+                    }
+                }
             } else {
                 const section = document.getElementById(tabName);
                 if (section) section.classList.remove('hidden');

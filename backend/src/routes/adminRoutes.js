@@ -9,5 +9,8 @@ router.use(authMiddleware, requireRole('admin'));
 router.get('/stats', adminController.getStats);
 router.get('/export', adminController.exportData);
 router.get('/datacore', adminController.getDataCore);
+router.get('/users', adminController.getAllUsers);
+router.get('/reports', adminController.getReports);
+router.delete('/users/:id', adminController.deleteUser);
 
 module.exports = router;

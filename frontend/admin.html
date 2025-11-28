@@ -15,8 +15,8 @@
                 </div>
                 <div class="nav-links">
                     <a href="#dashboard" class="active" onclick="showTab('dashboard')">Overview</a>
-                    <a href="#users" onclick="showTab('users')">User Management</a>
-                    <a href="#system" onclick="showTab('system')">System & Data</a>
+                    <a href="#reports" onclick="showTab('reports')">Reports & Transcripts</a>
+                    <a href="#messages" onclick="showTab('messages')">Messages <span id="unreadBadge" class="badge hidden">0</span></a>
                     <a href="#notifications" id="notificationsLink">Notifications <span id="notificationBadge" class="badge hidden">0</span></a>
                     <button id="logoutBtn" class="btn btn-small">Logout</button>
                 </div>
@@ -67,52 +67,100 @@
                 </div>
             </div>
 
-            <!-- Users Tab -->
-            <div id="tab-users" class="tab-content hidden">
+            <!-- Reports & Transcripts Tab -->
+            <div id="tab-reports" class="tab-content hidden">
                 <div class="dashboard-section">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                        <h3>User Management</h3>
-                        <button class="btn btn-primary" onclick="loadAllUsers()">Refresh List</button>
+                    <h3>Reports & Transcripts</h3>
+                    
+                    <!-- Filters -->
+                    <div id="reportFilters" class="filters" style="display: flex; gap: 1rem; margin-bottom: 1.5rem; background: #f8f9fa; padding: 1rem; border-radius: 8px;">
+                        <div class="form-group" style="margin-bottom: 0; flex: 1;">
+                            <label>Semester</label>
+                            <select id="reportSemester" onchange="loadAdminReports()">
+                                <option value="">All Semesters</option>
+                                <option value="HK1">Semester 1</option>
+                                <option value="HK2">Semester 2</option>
+                                <option value="HK3">Summer Semester</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0; flex: 1;">
+                            <label>Faculty</label>
+                            <select id="reportFaculty" onchange="loadAdminReports()">
+                                <option value="">All Faculties</option>
+                                <option value="Computer Science">Computer Science</option>
+                                <option value="Electrical Engineering">Electrical Engineering</option>
+                                <option value="Mechanical Engineering">Mechanical Engineering</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0; flex: 1;">
+                            <label>Role</label>
+                            <select id="reportRole" onchange="loadAdminReports()">
+                                <option value="student">Students</option>
+                                <option value="tutor">Tutors</option>
+                            </select>
+                        </div>
+                        <div style="display: flex; align-items: flex-end;">
+                            <button class="btn btn-secondary" onclick="exportReportPDF()">Export PDF</button>
+                        </div>
                     </div>
-                    <div id="usersList">
-                        <p>Loading users...</p>
+
+                    <!-- Report Content -->
+                    <div id="reportResults">
+                        <p>Select filters to view reports.</p>
+                    </div>
+
+                    <!-- Transcript View Section (Hidden by default) -->
+                    <div id="transcriptView" class="hidden" style="margin-top: 2rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <button class="btn btn-secondary" onclick="closeTranscriptView()">Back to Reports</button>
+                            <button class="btn btn-primary" onclick="printTranscript()">Print Transcript</button>
+                        </div>
+                        <div id="transcriptContent" style="border: 1px solid #ccc; padding: 2rem; background: white;">
+                            <!-- Transcript details will be rendered here -->
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- System Tab -->
-            <div id="tab-system" class="tab-content hidden">
+            <!-- Messages Tab -->
+            <div id="tab-messages" class="tab-content hidden">
                 <div class="dashboard-section">
-                    <h3>Data Export</h3>
-                    <div class="form-group">
-                        <label for="exportType">Data Type</label>
-                        <select id="exportType">
-                            <option value="users">Users</option>
-                            <option value="courses">Courses</option>
-                            <option value="sessions">Sessions</option>
-                        </select>
+                    <h3>Messages</h3>
+                    <div id="adminChatContainer" class="chat-container-main" style="height: 600px;">
+                        <div class="chat-sidebar">
+                            <h3>Conversations</h3>
+                            <div class="chat-user-search">
+                                <input type="text" id="userSearch" placeholder="Search users...">
+                                <button id="newChatBtn" class="btn btn-primary" style="margin-top: 0.5rem; width: 100%;">New Chat</button>
+                            </div>
+                            <div id="chatRoomsList" class="chat-rooms-list">
+                                <!-- Chat list will be loaded here -->
+                            </div>
+                        </div>
+                        <div class="chat-main">
+                            <div id="chatHeader" class="chat-header">
+                                <h4>Select a conversation</h4>
+                            </div>
+                            <div id="chatMessagesArea" class="chat-messages-area">
+                                <!-- Messages will be loaded here -->
+                            </div>
+                            <div id="chatInputArea" class="chat-input-area hidden">
+                                <form id="chatMessageForm">
+                                    <input type="text" id="chatMessageInput" placeholder="Type a message..." required>
+                                    <button type="submit" class="btn btn-primary">Send</button>
+                                </form>
+                            </div>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label for="exportFormat">Format</label>
-                        <select id="exportFormat">
-                            <option value="json">JSON</option>
-                            <option value="csv">CSV</option>
-                        </select>
-                    </div>
-                    <button class="btn btn-primary" onclick="exportReport()">Export Data</button>
                 </div>
+            </div>
 
-                <div class="dashboard-section">
-                    <h3>HCMUT Datacore Integration</h3>
-                    <p style="margin-bottom: 1rem;">Sync student data from the university database.</p>
-                    <button class="btn btn-secondary" onclick="syncDatacore()">Sync Student Data</button>
-                </div>
-
-                <div class="dashboard-section">
-                    <h3>System Health</h3>
-                    <div id="healthStatus" class="health-grid">
-                        <!-- Health status loaded via JS -->
-                    </div>
+            <!-- New Chat Modal -->
+            <div id="newChatModal" class="modal hidden">
+                <div class="modal-content">
+                    <span class="close-modal">&times;</span>
+                    <h3>Start New Conversation</h3>
+                    <div id="availableUsersList" class="users-list-modal"></div>
                 </div>
             </div>
 
@@ -148,6 +196,15 @@
                     link.classList.add('active');
                 }
             });
+
+            // Load data for specific tabs
+            if (tabName === 'messages') {
+                if (typeof loadChatRooms === 'function') loadChatRooms();
+            } else if (tabName === 'dashboard') {
+                if (typeof loadAdminDashboard === 'function') loadAdminDashboard();
+            } else if (tabName === 'reports') {
+                if (typeof loadAdminReports === 'function') loadAdminReports();
+            }
         }
 
         document.addEventListener('DOMContentLoaded', () => {

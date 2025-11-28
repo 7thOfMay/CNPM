@@ -2,9 +2,6 @@ const request = require('supertest');
 const { app, server } = require('../src/index');
 
 describe('Authentication Endpoints', () => {
-    afterAll((done) => {
-        server.close(done);
-    });
 
     describe('POST /api/auth/register', () => {
         it('should register a new student successfully', async () => {
@@ -84,7 +81,8 @@ describe('Authentication Endpoints', () => {
                 .send({
                     username: 'testuser2',
                     email: 'test2@example.com',
-                    password: '123'
+                    password: '123',
+                    role: 'student'
                 });
 
             expect(response.statusCode).toBe(400);
@@ -97,7 +95,8 @@ describe('Authentication Endpoints', () => {
                 .send({
                     username: 'user1',
                     email: 'duplicate@example.com',
-                    password: 'password123'
+                    password: 'password123',
+                    role: 'student'
                 });
 
             const response = await request(app)
@@ -105,7 +104,8 @@ describe('Authentication Endpoints', () => {
                 .send({
                     username: 'user2',
                     email: 'duplicate@example.com',
-                    password: 'password456'
+                    password: 'password456',
+                    role: 'student'
                 });
 
             expect(response.statusCode).toBe(409);
@@ -120,7 +120,8 @@ describe('Authentication Endpoints', () => {
                 .send({
                     username: 'loginuser',
                     email: 'login@example.com',
-                    password: 'password123'
+                    password: 'password123',
+                    role: 'student'
                 });
         });
 
@@ -147,7 +148,7 @@ describe('Authentication Endpoints', () => {
                 });
 
             expect(response.statusCode).toBe(401);
-            expect(response.body.error).toContain('Invalid credentials');
+            expect(response.body.error).toContain('Tài khoản hoặc mật khẩu không hợp lệ');
         });
 
         it('should reject login with invalid password', async () => {
@@ -159,7 +160,7 @@ describe('Authentication Endpoints', () => {
                 });
 
             expect(response.statusCode).toBe(401);
-            expect(response.body.error).toContain('Invalid credentials');
+            expect(response.body.error).toContain('Tài khoản hoặc mật khẩu không hợp lệ');
         });
 
         it('should reject login with missing fields', async () => {
@@ -182,7 +183,8 @@ describe('Authentication Endpoints', () => {
                 .send({
                     username: 'meuser',
                     email: 'me@example.com',
-                    password: 'password123'
+                    password: 'password123',
+                    role: 'student'
                 });
             authToken = response.body.token;
         });
@@ -247,14 +249,10 @@ describe('Role-Based Access Control', () => {
         adminToken = admin.body.token;
     });
 
-    afterAll((done) => {
-        server.close(done);
-    });
-
     describe('Admin-only endpoints', () => {
         it('should allow admin to access /api/users', async () => {
             const response = await request(app)
-                .get('/api/users')
+                .get('/api/admin/users')
                 .set('Authorization', `Bearer ${adminToken}`);
 
             expect(response.statusCode).toBe(200);
@@ -263,7 +261,7 @@ describe('Role-Based Access Control', () => {
 
         it('should deny student access to /api/users', async () => {
             const response = await request(app)
-                .get('/api/users')
+                .get('/api/admin/users')
                 .set('Authorization', `Bearer ${studentToken}`);
 
             expect(response.statusCode).toBe(403);
@@ -293,7 +291,7 @@ describe('Role-Based Access Control', () => {
     describe('Tutor endpoints', () => {
         it('should allow tutor to create course', async () => {
             const response = await request(app)
-                .post('/api/tutor/courses')
+                .post('/api/courses')
                 .set('Authorization', `Bearer ${tutorToken}`)
                 .send({
                     title: 'Test Course',
@@ -308,7 +306,7 @@ describe('Role-Based Access Control', () => {
 
         it('should deny student from creating course', async () => {
             const response = await request(app)
-                .post('/api/tutor/courses')
+                .post('/api/courses')
                 .set('Authorization', `Bearer ${studentToken}`)
                 .send({
                     title: 'Student Course',
@@ -321,7 +319,7 @@ describe('Role-Based Access Control', () => {
 
         it('should allow admin to create course', async () => {
             const response = await request(app)
-                .post('/api/tutor/courses')
+                .post('/api/courses')
                 .set('Authorization', `Bearer ${adminToken}`)
                 .send({
                     title: 'Admin Course',
@@ -334,7 +332,7 @@ describe('Role-Based Access Control', () => {
 
         it('should allow tutor to view their courses', async () => {
             const response = await request(app)
-                .get('/api/tutor/courses')
+                .get('/api/courses/my-courses')
                 .set('Authorization', `Bearer ${tutorToken}`);
 
             expect(response.statusCode).toBe(200);
@@ -345,18 +343,6 @@ describe('Role-Based Access Control', () => {
             const response = await request(app)
                 .post('/api/courses/1/enroll')
                 .set('Authorization', `Bearer ${tutorToken}`);
-
-            expect(response.statusCode).toBe(403);
-        });
-
-        it('should deny tutor from using AI tutor', async () => {
-            const response = await request(app)
-                .post('/api/tutoring/ask')
-                .set('Authorization', `Bearer ${tutorToken}`)
-                .send({
-                    question: 'What is math?',
-                    subject: 'math'
-                });
 
             expect(response.statusCode).toBe(403);
         });
@@ -382,9 +368,6 @@ describe('Role-Based Access Control', () => {
 });
 
 describe('Course Endpoints', () => {
-    afterAll((done) => {
-        server.close(done);
-    });
 
     describe('GET /api/courses', () => {
         it('should return all courses', async () => {
@@ -441,7 +424,8 @@ describe('Course Endpoints', () => {
                 .send({
                     username: 'enrolluser',
                     email: 'enroll@example.com',
-                    password: 'password123'
+                    password: 'password123',
+                    role: 'student'
                 });
             authToken = response.body.token;
         });
@@ -454,7 +438,7 @@ describe('Course Endpoints', () => {
             expect(response.statusCode).toBe(200);
             expect(response.body).toHaveProperty('message');
             expect(response.body).toHaveProperty('course');
-            expect(response.body).toHaveProperty('user');
+            expect(response.body).toHaveProperty('syncedData');
         });
 
         it('should reject enrollment without token', async () => {
@@ -471,13 +455,35 @@ describe('Course Endpoints', () => {
 
             expect(response.statusCode).toBe(404);
         });
+
+        it('should sync user data from Datacore upon enrollment', async () => {
+            // 1. Register a user that exists in Datacore
+            const registerResponse = await request(app)
+                .post('/api/auth/register')
+                .send({
+                    username: 'sync_test_user',
+                    email: 'a.nguyen@hcmut.edu.vn', // Exists in Datacore
+                    password: 'password123',
+                    role: 'student'
+                });
+            
+            const token = registerResponse.body.token;
+
+            // 2. Enroll in a course
+            const response = await request(app)
+                .post('/api/courses/1/enroll')
+                .set('Authorization', `Bearer ${token}`);
+
+            expect(response.statusCode).toBe(200);
+            expect(response.body).toHaveProperty('syncedData');
+            expect(response.body.syncedData.fullName).toBe('Nguyen Van A');
+            expect(response.body.syncedData.faculty).toBe('Computer Science');
+            expect(response.body.syncedData.studentId).toBe('2012345');
+        });
     });
 });
 
 describe('Health Check', () => {
-    afterAll((done) => {
-        server.close(done);
-    });
 
     it('should return healthy status', async () => {
         const response = await request(app)

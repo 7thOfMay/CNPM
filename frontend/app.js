@@ -402,9 +402,14 @@ async function loadEnrolledCourses() {
                         <h3>${course.title}</h3>
                         <p>Subject: ${course.subject}</p>
                         <span class="course-badge">${course.level}</span>
-                        <button class="btn btn-primary" onclick="event.stopPropagation(); startChatWith(${course.tutorId}, '${course.tutorName}', '${course.tutorRole}')" style="margin-top: 1rem; width: 100%;">
-                            Chat with Tutor
-                        </button>
+                        ${course.hasSelectedTutor ? 
+                            `<button class="btn btn-primary" onclick="event.stopPropagation(); startChatWith(${course.tutorId}, '${course.tutorName}', '${course.tutorRole}')" style="margin-top: 1rem; width: 100%;">
+                                Chat with Tutor
+                            </button>` :
+                            `<button class="btn btn-secondary" onclick="event.stopPropagation(); openTutorSelectionModal(${course.id})" style="margin-top: 1rem; width: 100%; background-color: #f59e0b; border-color: #f59e0b; color: white;">
+                                Select Tutor
+                            </button>`
+                        }
                     </div>
                 </div>
             `).join('');
@@ -464,6 +469,9 @@ async function loadTutorCourses() {
         });
         const data = await response.json();
         
+        // Cache for use in session creation
+        window.tutorCoursesCache = data.courses || [];
+
         const tutorCoursesList = document.getElementById('tutorCoursesList');
         if (!tutorCoursesList) return;
 
@@ -592,7 +600,7 @@ async function loadAdminStats() {
 
 async function loadAllUsers() {
     try {
-        const response = await fetch(`${API_BASE_URL}/users`, {
+        const response = await fetch(`${API_BASE_URL}/admin/users`, {
             headers: getAuthHeaders()
         });
         const data = await response.json();
@@ -764,11 +772,11 @@ function filterCourses() {
     displayCourses(filtered);
 }
 
-async function enrollCourse(courseId) {
+let pendingEnrollmentCourseId = null;
+
+function enrollCourse(courseId) {
     // Ensure user is loaded
     loadUserFromStorage();
-
-    console.log('Enrolling with token:', authToken);
 
     if (!currentUser || !authToken) {
         alert('Please login first!');
@@ -780,9 +788,55 @@ async function enrollCourse(courseId) {
         alert('Only students can enroll in courses!');
         return;
     }
+
+    const course = allCourses.find(c => c.id === courseId);
+    if (!course) return;
+
+    pendingEnrollmentCourseId = courseId;
     
+    // Populate Modal
+    // Use synced data if available, otherwise fallback to username
+    const displayName = currentUser.fullName || currentUser.username;
+    const displayId = currentUser.studentId ? `Student ID: ${currentUser.studentId}` : `User ID: ${currentUser.id}`;
+    const displayFaculty = currentUser.faculty || "Syncing from HCMUT_DATACORE...";
+
+    document.getElementById('confirmStudentName').textContent = displayName;
+    document.getElementById('confirmStudentId').textContent = displayId;
+    document.getElementById('confirmFaculty').textContent = displayFaculty;
+    document.getElementById('confirmCourseName').textContent = course.title;
+    
+    const modal = document.getElementById('enrollmentModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+    } else {
+        // Fallback if modal is missing (e.g. on index.html)
+        if(confirm(`Enroll in ${course.title}? Data will be synced from HCMUT_DATACORE.`)) {
+            // Mock the confirm action
+            pendingEnrollmentCourseId = courseId;
+            confirmEnrollment();
+        }
+    }
+}
+
+function closeEnrollmentModal() {
+    const modal = document.getElementById('enrollmentModal');
+    if (modal) modal.classList.add('hidden');
+    pendingEnrollmentCourseId = null;
+}
+
+async function confirmEnrollment() {
+    if (!pendingEnrollmentCourseId) return;
+    
+    const confirmBtn = document.querySelector('#enrollmentModal .btn-primary');
+    let originalText = 'Confirm Registration';
+    if (confirmBtn) {
+        originalText = confirmBtn.textContent;
+        confirmBtn.textContent = 'Syncing & Registering...';
+        confirmBtn.disabled = true;
+    }
+
     try {
-        const response = await fetch(`${API_BASE_URL}/courses/${courseId}/enroll`, {
+        const response = await fetch(`${API_BASE_URL}/courses/${pendingEnrollmentCourseId}/enroll`, {
             method: 'POST',
             headers: getAuthHeaders()
         });
@@ -790,7 +844,30 @@ async function enrollCourse(courseId) {
         const data = await response.json();
         
         if (response.ok) {
-            alert('Successfully enrolled! You can now chat with the course tutor.');
+            closeEnrollmentModal();
+            
+            // Update local user state with synced data
+            if (data.syncedData && currentUser) {
+                currentUser.fullName = data.syncedData.fullName;
+                currentUser.studentId = data.syncedData.studentId;
+                currentUser.faculty = data.syncedData.faculty;
+                saveUserToStorage(currentUser, authToken);
+                
+                // Update welcome message if on dashboard
+                const welcomeEl = document.getElementById('studentWelcome');
+                if (welcomeEl) {
+                    welcomeEl.textContent = `Welcome back, ${currentUser.fullName || currentUser.username}!`;
+                }
+            }
+
+            // Refresh notifications to show the new enrollment message
+            loadNotifications();
+            
+            // Open Tutor Selection Modal
+            openTutorSelectionModal(pendingEnrollmentCourseId);
+            
+            // Optional: Switch to notifications tab or just show a small toast
+            // For now, we just reload the courses
             loadCourses();
             // Always reload enrolled courses to ensure dashboard is up to date
             loadEnrolledCourses();
@@ -798,7 +875,7 @@ async function enrollCourse(courseId) {
                 loadStudentDashboard();
             }
         } else {
-            const errorData = await response.json();
+            const errorData = data;
             console.error('Enrollment error:', errorData);
             
             if (response.status === 401) {
@@ -809,9 +886,16 @@ async function enrollCourse(courseId) {
             } else {
                 alert(errorData.error || 'Enrollment failed');
             }
+            closeEnrollmentModal();
         }
     } catch (error) {
         alert('Network error. Please try again.');
+        closeEnrollmentModal();
+    } finally {
+        if (confirmBtn) {
+            confirmBtn.textContent = originalText;
+            confirmBtn.disabled = false;
+        }
     }
 }
 
@@ -948,7 +1032,12 @@ async function startChatWith(userId, username, role) {
             
             // Switch to chat view
             if (window.showTab) {
-                window.showTab('chat');
+                // Check if we are in admin dashboard (which uses 'messages' tab)
+                if (currentUser && currentUser.role === 'admin') {
+                    window.showTab('messages');
+                } else {
+                    window.showTab('chat');
+                }
             } else {
                 navigateToSection('chat');
             }
@@ -1046,11 +1135,13 @@ async function checkUnreadMessages() {
         const data = await response.json();
         
         const badge = document.getElementById('unreadBadge');
-        if (data.unreadCount > 0) {
-            badge.textContent = data.unreadCount;
-            badge.classList.remove('hidden');
-        } else {
-            badge.classList.add('hidden');
+        if (badge) {
+            if (data.unreadCount > 0) {
+                badge.textContent = data.unreadCount;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
         }
     } catch (error) {
         console.error('Failed to check unread messages:', error);
@@ -1168,6 +1259,26 @@ async function setupCreateSessionForm() {
     form.addEventListener('submit', handleCreateSession);
 }
 
+function loadCourseStudents() {
+    const courseId = document.getElementById('sessionCourse').value;
+    const inviteSelect = document.getElementById('sessionInvites');
+    inviteSelect.innerHTML = '';
+
+    if (!courseId) {
+        inviteSelect.innerHTML = '<option value="" disabled>Select a course first</option>';
+        return;
+    }
+
+    const course = window.tutorCoursesCache.find(c => c.id === parseInt(courseId));
+    if (course && course.enrolledStudentDetails && course.enrolledStudentDetails.length > 0) {
+        inviteSelect.innerHTML = course.enrolledStudentDetails.map(s => `
+            <option value="${s.id}">${s.username} (${s.email})</option>
+        `).join('');
+    } else {
+        inviteSelect.innerHTML = '<option value="" disabled>No students enrolled in this course</option>';
+    }
+}
+
 async function handleCreateSession(e) {
     e.preventDefault();
     
@@ -1179,19 +1290,55 @@ async function handleCreateSession(e) {
     const location = document.getElementById('sessionLocation').value;
     const description = document.getElementById('sessionDescription').value;
     
+    // New Fields
+    const goals = document.getElementById('sessionGoals').value;
+    const type = document.querySelector('input[name="sessionFormat"]:checked').value;
+    
+    // Materials (from global variable in tutor.html)
+    // Note: attachedMaterials is defined in the HTML script block. 
+    // We need to access it safely.
+    const materials = (typeof attachedMaterials !== 'undefined') ? attachedMaterials : [];
+
+    // Invites
+    const inviteSelect = document.getElementById('sessionInvites');
+    const invitedStudents = Array.from(inviteSelect.selectedOptions).map(opt => parseInt(opt.value));
+
+    // Recurrence
+    const isRecurring = document.querySelector('input[name="sessionType"]:checked').value === 'recurring';
+    const recurrenceWeeks = document.getElementById('sessionWeeks').value;
+
     try {
         const response = await fetch(`${API_BASE_URL}/sessions`, {
             method: 'POST',
             headers: getAuthHeaders(),
-            body: JSON.stringify({ courseId, date, startTime, endTime, maxStudents, location, description })
+            body: JSON.stringify({ 
+                courseId, date, startTime, endTime, maxStudents, location, description,
+                isRecurring, recurrenceWeeks,
+                type, goals, materials, invitedStudents
+            })
         });
         const data = await response.json();
         
         if (response.ok) {
-            showMessage('createSessionMessage', 'Session created successfully!', 'success');
+            showMessage('createSessionMessage', data.message || 'Sessions created successfully!', 'success');
             document.getElementById('createSessionForm').reset();
+            // Reset recurrence UI
+            document.getElementById('recurrenceOptions').classList.add('hidden');
+            document.querySelector('input[value="one-time"]').checked = true;
+            // Reset materials
+            if (typeof attachedMaterials !== 'undefined') {
+                attachedMaterials.length = 0; // Clear array
+                if (typeof updateMaterialsList === 'function') updateMaterialsList();
+            }
+            
             loadTutorSessions();
         } else {
+            if (response.status === 409) {
+                // Conflict
+                if (confirm(`${data.error}: ${data.message}\n\n${data.suggestion}\n\nWould you like to see your current schedule?`)) {
+                    showTab('sessions'); // Already there, but maybe scroll to list
+                }
+            }
             showMessage('createSessionMessage', data.error || 'Failed to create session', 'error');
         }
     } catch (error) {
@@ -1304,30 +1451,47 @@ async function loadTutorProgress() {
             });
             const progressData = await progressResponse.json();
             
+            // Store data for modal use
+            if (!window.courseProgressData) window.courseProgressData = {};
+            window.courseProgressData[course.id] = progressData.students;
+
             html += `
-                <div style="margin-bottom: 2rem;">
-                    <h4 style="margin-bottom: 1rem;">${course.title}</h4>
+                <div style="margin-bottom: 2rem; background: white; padding: 1rem; border-radius: 8px; box-shadow: var(--shadow-sm);">
+                    <h4 style="margin-bottom: 1rem; border-bottom: 1px solid #eee; padding-bottom: 0.5rem;">${course.title}</h4>
                     ${progressData.students && progressData.students.length > 0 ? `
                         <table class="progress-table">
                             <thead>
                                 <tr>
                                     <th>Student</th>
-                                    <th>Sessions</th>
-                                    <th>Progress</th>
+                                    <th>Attendance</th>
+                                    <th>Grade</th>
+                                    <th>Risk Status</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 ${progressData.students.map(s => {
-                                    const percent = s.totalSessions > 0 ? (s.completedSessions / s.totalSessions * 100).toFixed(0) : 0;
+                                    let riskClass = 'risk-low';
+                                    let riskLabel = 'On Track';
+                                    if (s.riskLevel === 'High') { riskClass = 'risk-high'; riskLabel = 'High Risk'; }
+                                    else if (s.riskLevel === 'Medium') { riskClass = 'risk-medium'; riskLabel = 'At Risk'; }
+
                                     return `
                                         <tr>
-                                            <td>${s.studentName}</td>
-                                            <td>${s.completedSessions} / ${s.totalSessions}</td>
+                                            <td>
+                                                <div style="font-weight: bold;">${s.studentName}</div>
+                                                <div style="font-size: 0.8rem; color: #666;">${s.email}</div>
+                                            </td>
                                             <td>
                                                 <div class="progress-bar">
-                                                    <div class="progress-fill" style="width: ${percent}%"></div>
+                                                    <div class="progress-fill" style="width: ${s.attendanceRate}%"></div>
                                                 </div>
-                                                <span style="font-size: 0.85rem; color: var(--text-secondary);">${percent}%</span>
+                                                <span style="font-size: 0.85rem;">${s.completedSessions}/${s.totalSessions} (${s.attendanceRate}%)</span>
+                                            </td>
+                                            <td><span class="course-badge">${s.grade}</span></td>
+                                            <td><span class="badge ${riskClass}">${riskLabel}</span></td>
+                                            <td>
+                                                <button class="btn btn-small btn-secondary" onclick="openStudentProgressModal(${course.id}, ${s.studentId})">Details</button>
                                             </td>
                                         </tr>
                                     `;
@@ -1342,6 +1506,111 @@ async function loadTutorProgress() {
     } catch (error) {
         console.error('Failed to load progress:', error);
     }
+}
+
+// Student Progress Modal
+let currentProgressStudent = null;
+let currentProgressCourse = null;
+
+function openStudentProgressModal(courseId, studentId) {
+    const students = window.courseProgressData[courseId];
+    const student = students.find(s => s.studentId === studentId);
+    
+    if (!student) return;
+
+    currentProgressStudent = student;
+    currentProgressCourse = courseId;
+
+    document.getElementById('progressStudentName').textContent = student.studentName;
+    document.getElementById('progressGrade').textContent = student.grade;
+    document.getElementById('progressAttendance').textContent = `${student.attendanceRate}%`;
+    
+    const riskEl = document.getElementById('progressRiskBadge');
+    riskEl.textContent = student.riskLevel === 'Low' ? 'On Track' : `${student.riskLevel} Risk`;
+    riskEl.className = `risk-badge risk-${student.riskLevel.toLowerCase()}`;
+    
+    document.getElementById('progressRiskReason').textContent = student.riskReason ? `Risk Factors: ${student.riskReason}` : '';
+
+    renderNotes(student.notes || []);
+
+    document.getElementById('studentProgressModal').classList.remove('hidden');
+}
+
+function renderNotes(notes) {
+    const list = document.getElementById('progressNotesList');
+    if (notes.length === 0) {
+        list.innerHTML = '<p style="font-style: italic; color: #666;">No notes yet.</p>';
+    } else {
+        list.innerHTML = notes.map(n => `
+            <div style="margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid #eee;">
+                <div style="font-size: 0.9rem;">${n.note}</div>
+                <div style="font-size: 0.75rem; color: #999;">${new Date(n.createdAt).toLocaleString()}</div>
+            </div>
+        `).join('');
+    }
+}
+
+async function handleAddNote(e) {
+    e.preventDefault();
+    const content = document.getElementById('newNoteContent').value;
+    
+    if (!content || !currentProgressStudent) return;
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/progress/course/${currentProgressCourse}/student/${currentProgressStudent.studentId}/note`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ note: content })
+        });
+        
+        if (response.ok) {
+            const newNote = await response.json();
+            if (!currentProgressStudent.notes) currentProgressStudent.notes = [];
+            currentProgressStudent.notes.push(newNote);
+            renderNotes(currentProgressStudent.notes);
+            document.getElementById('newNoteContent').value = '';
+        } else {
+            alert('Failed to add note');
+        }
+    } catch (error) {
+        console.error('Error adding note:', error);
+    }
+}
+
+function closeStudentProgressModal() {
+    document.getElementById('studentProgressModal').classList.add('hidden');
+}
+
+function scheduleFollowUp() {
+    closeStudentProgressModal();
+    showTab('sessions');
+    
+    // Pre-fill session form
+    document.getElementById('sessionCourse').value = currentProgressCourse;
+    document.getElementById('sessionDescription').value = `Follow-up session for ${currentProgressStudent.studentName}. Focus on: ${currentProgressStudent.riskReason || 'General Progress'}`;
+    document.getElementById('sessionGoals').value = 'Review progress and address risk factors.';
+    
+    // Trigger change to load students
+    loadCourseStudents();
+    
+    // Select the student (needs a small timeout for the options to populate)
+    setTimeout(() => {
+        const inviteSelect = document.getElementById('sessionInvites');
+        for (let i = 0; i < inviteSelect.options.length; i++) {
+            if (parseInt(inviteSelect.options[i].value) === currentProgressStudent.studentId) {
+                inviteSelect.options[i].selected = true;
+                break;
+            }
+        }
+    }, 500);
+    
+    // Scroll to form
+    document.getElementById('createSessionForm').scrollIntoView({ behavior: 'smooth' });
+}
+
+function sendReminder() {
+    alert(`Reminder sent to ${currentProgressStudent.studentName} to check their progress.`);
+    // In real app, call API to send email/notification
 }
 
 // ==================== NOTIFICATIONS ====================
@@ -2093,7 +2362,7 @@ async function loadModalStudents(courseId) {
                             <th>Student</th>
                             <th>Attendance</th>
                             <th>Progress</th>
-                            <th>Grade</th>
+                            <th>Detailed Grades</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -2109,7 +2378,17 @@ async function loadModalStudents(courseId) {
                                         </div>
                                         <span style="font-size: 0.85rem;">${percent}%</span>
                                     </td>
-                                    <td><span class="course-badge">${s.grade !== undefined ? s.grade : 'N/A'}</span></td>
+                                    <td>
+                                        <div style="font-size: 0.85rem;">
+                                            <span style="display: inline-block; width: 80px;">Midterm:</span> <strong>${s.midtermScore !== undefined ? s.midtermScore : '-'}</strong><br>
+                                            <span style="display: inline-block; width: 80px;">Assign:</span> <strong>${s.assignmentScore !== undefined ? s.assignmentScore : '-'}</strong><br>
+                                            <span style="display: inline-block; width: 80px;">Lab:</span> <strong>${s.labScore !== undefined ? s.labScore : '-'}</strong><br>
+                                            <span style="display: inline-block; width: 80px;">Final:</span> <strong>${s.finalScore !== undefined ? s.finalScore : '-'}</strong><br>
+                                            <div style="border-top: 1px solid #eee; margin-top: 4px; padding-top: 4px;">
+                                                <span style="display: inline-block; width: 80px;">Total:</span> <span class="course-badge">${s.grade !== undefined ? s.grade : 'N/A'}</span>
+                                            </div>
+                                        </div>
+                                    </td>
                                 </tr>
                             `;
                         }).join('')}
@@ -2178,7 +2457,27 @@ async function loadStudentModalOverview(courseId) {
         
         document.getElementById('studentModalCourseTitle').textContent = data.courseTitle;
         document.getElementById('studentModalTutorName').textContent = data.tutorName;
-        document.getElementById('studentModalGrade').textContent = data.grade !== undefined ? data.grade : 'N/A';
+        
+        // Detailed Grade Breakdown
+        document.getElementById('studentModalGrade').innerHTML = `
+            <div style="text-align: left; font-size: 0.9rem; margin-top: 0.5rem;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span>Midterm (20%):</span> <strong>${data.midtermScore !== undefined ? data.midtermScore : '-'}</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span>Assignment (20%):</span> <strong>${data.assignmentScore !== undefined ? data.assignmentScore : '-'}</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span>Lab (20%):</span> <strong>${data.labScore !== undefined ? data.labScore : '-'}</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span>Final (40%):</span> <strong>${data.finalScore !== undefined ? data.finalScore : '-'}</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-top: 8px; padding-top: 8px; border-top: 1px solid #ddd; font-weight: bold; font-size: 1.1rem; color: var(--primary-blue);">
+                    <span>Total Grade:</span> <span>${data.grade !== undefined ? data.grade : 'N/A'}</span>
+                </div>
+            </div>
+        `;
         
         const percent = data.progress.percentage;
         document.getElementById('studentModalProgressBar').style.width = `${percent}%`;
@@ -2220,6 +2519,656 @@ async function loadStudentModalResources(courseId) {
         }
     } catch (error) {
         container.innerHTML = '<p class="error">Failed to load resources.</p>';
+    }
+}
+
+// ==================== ADMIN TRANSCRIPT FUNCTIONS ====================
+// Merged into Reports section
+async function viewStudentTranscript(studentId) {
+    const viewDiv = document.getElementById('transcriptView');
+    const listDiv = document.getElementById('transcriptList').parentElement;
+    const contentDiv = document.getElementById('transcriptContent');
+    
+    listDiv.classList.add('hidden');
+    viewDiv.classList.remove('hidden');
+    contentDiv.innerHTML = '<p>Loading transcript...</p>';
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/progress/transcript/${studentId}`, {
+            headers: getAuthHeaders()
+        });
+        const data = await response.json();
+        
+        const studentName = data.studentName;
+        const email = data.email;
+        const courses = data.transcript;
+        const gpa = data.gpa;
+        
+        // Calculate overall classification based on GPA
+        let classification = 'Weak';
+        if (gpa >= 9.0) classification = 'Excellent';
+        else if (gpa >= 8.0) classification = 'Very Good';
+        else if (gpa >= 7.0) classification = 'Good';
+        else if (gpa >= 5.0) classification = 'Average';
+        
+        contentDiv.innerHTML = `
+            <div class="transcript-header" style="text-align: center; margin-bottom: 2rem; border-bottom: 2px solid #333; padding-bottom: 1rem;">
+                <h2>OFFICIAL ACADEMIC TRANSCRIPT</h2>
+                <p>TutorPro Learning Management System</p>
+            </div>
+            
+            <div class="student-info" style="margin-bottom: 2rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div>
+                    <p><strong>Student Name:</strong> ${studentName}</p>
+                    <p><strong>Student ID:</strong> ${data.studentId}</p>
+                    <p><strong>Email:</strong> ${email}</p>
+                </div>
+                <div style="text-align: right;">
+                    <p><strong>Date Issued:</strong> ${new Date().toLocaleDateString()}</p>
+                    <p><strong>GPA:</strong> ${gpa}</p>
+                    <p><strong>Classification:</strong> <span class="role-badge ${classification.toLowerCase().replace(' ', '-')}">${classification}</span></p>
+                </div>
+            </div>
+            
+            <table class="users-table" style="width: 100%; border: 1px solid #ddd;">
+                <thead>
+                    <tr style="background: #f0f0f0;">
+                        <th>Course</th>
+                        <th>Midterm (20%)</th>
+                        <th>Assignment (20%)</th>
+                        <th>Lab (20%)</th>
+                        <th>Final (40%)</th>
+                        <th>Total</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${courses.map(c => `
+                        <tr>
+                            <td>${c.courseTitle}</td>
+                            <td>${c.midterm !== undefined ? c.midterm : '-'}</td>
+                            <td>${c.assignment !== undefined ? c.assignment : '-'}</td>
+                            <td>${c.lab !== undefined ? c.lab : '-'}</td>
+                            <td>${c.final !== undefined ? c.final : '-'}</td>
+                            <td><strong>${c.grade !== undefined ? c.grade : '-'}</strong></td>
+                            <td>${c.grade >= 5.0 ? 'PASSED' : 'FAILED'}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+            
+            <div class="transcript-footer" style="margin-top: 3rem; display: flex; justify-content: space-between;">
+                <div>
+                    <p><strong>Grading Scale:</strong></p>
+                    <small>0.0 - 10.0</small>
+                </div>
+                <div style="text-align: center;">
+                    <p><strong>Registrar Signature</strong></p>
+                    <div style="height: 50px;"></div>
+                    <p>_______________________</p>
+                </div>
+            </div>
+        `;
+    } catch (error) {
+        console.error('Failed to load transcript:', error);
+        contentDiv.innerHTML = '<p class="error">Failed to load transcript data.</p>';
+    }
+}
+
+function closeTranscriptView() {
+    document.getElementById('transcriptView').classList.add('hidden');
+    document.getElementById('transcriptList').parentElement.classList.remove('hidden');
+}
+
+function printTranscript() {
+    const content = document.getElementById('transcriptContent').innerHTML;
+    const printWindow = window.open('', '', 'height=600,width=800');
+    printWindow.document.write('<html><head><title>Transcript</title>');
+    printWindow.document.write('<link rel="stylesheet" href="styles.css">');
+    printWindow.document.write('<style>body { padding: 2rem; font-family: sans-serif; } .users-table { width: 100%; border-collapse: collapse; } .users-table th, .users-table td { border: 1px solid #ddd; padding: 8px; text-align: left; } .role-badge { padding: 4px 8px; border-radius: 12px; font-size: 0.8em; font-weight: bold; } .role-badge.excellent { background: #d1fae5; color: #065f46; } .role-badge.good { background: #dbeafe; color: #1e40af; } .role-badge.average { background: #fef3c7; color: #92400e; } .role-badge.poor { background: #fee2e2; color: #991b1b; }</style>');
+    printWindow.document.write('</head><body>');
+    printWindow.document.write(content);
+    printWindow.document.write('</body></html>');
+    printWindow.document.close();
+    printWindow.print();
+}
+
+// ==================== ADMIN REPORTS ====================
+async function loadAdminReports() {
+    const semester = document.getElementById('reportSemester').value;
+    const faculty = document.getElementById('reportFaculty').value;
+    const role = document.getElementById('reportRole').value;
+    
+    const resultsDiv = document.getElementById('reportResults');
+    resultsDiv.innerHTML = '<p>Loading reports...</p>';
+    
+    try {
+        let url = `${API_BASE_URL}/admin/reports?role=${role}`;
+        if (semester) url += `&semester=${semester}`;
+        if (faculty) url += `&faculty=${encodeURIComponent(faculty)}`;
+        
+        const response = await fetch(url, {
+            headers: getAuthHeaders()
+        });
+        const data = await response.json();
+        
+        if (data.data && data.data.length > 0) {
+            if (role === 'student') {
+                resultsDiv.innerHTML = `
+                    <table class="users-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Faculty</th>
+                                <th>GPA</th>
+                                <th>Participation</th>
+                                <th>Scholarship</th>
+                                <th>Training Points</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.data.map(item => `
+                                <tr>
+                                    <td>${item.name}</td>
+                                    <td>${item.faculty || 'N/A'}</td>
+                                    <td><strong>${item.gpa}</strong></td>
+                                    <td>
+                                        ${item.participationRate} 
+                                        <small style="color: #666;">(${item.attended}/${item.totalSessions})</small>
+                                    </td>
+                                    <td>
+                                        ${item.scholarship === 'Eligible' 
+                                            ? '<span class="role-badge excellent">Eligible</span>' 
+                                            : '<span class="role-badge poor">No</span>'}
+                                    </td>
+                                    <td><span class="role-badge good">${item.trainingPoints}</span></td>
+                                    <td>
+                                        <button class="btn btn-small btn-primary" onclick="viewStudentTranscript(${item.id})">View Transcript</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } else {
+                resultsDiv.innerHTML = `
+                    <table class="users-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Faculty</th>
+                                <th>Avg Rating</th>
+                                <th>Total Hours</th>
+                                <th>Utilization</th>
+                                <th>Sessions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.data.map(item => `
+                                <tr>
+                                    <td>${item.name}</td>
+                                    <td>${item.faculty || 'N/A'}</td>
+                                    <td><strong>${item.avgRating}</strong> ⭐</td>
+                                    <td>${item.totalHours} hrs</td>
+                                    <td>${item.utilizationRate}</td>
+                                    <td>${item.sessionsCount}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            }
+        } else {
+            resultsDiv.innerHTML = '<p>No data found for the selected filters.</p>';
+        }
+    } catch (error) {
+        console.error('Failed to load reports:', error);
+        resultsDiv.innerHTML = '<p class="error">Failed to load reports. Please ensure the backend server is running and updated.</p>';
+    }
+}
+
+function exportReportPDF() {
+    const content = document.getElementById('reportResults').innerHTML;
+    const printWindow = window.open('', '', 'height=600,width=800');
+    printWindow.document.write('<html><head><title>Report Export</title>');
+    printWindow.document.write('<link rel="stylesheet" href="styles.css">');
+    printWindow.document.write('<style>body { padding: 2rem; font-family: sans-serif; } .users-table { width: 100%; border-collapse: collapse; } .users-table th, .users-table td { border: 1px solid #ddd; padding: 8px; text-align: left; } .role-badge { padding: 4px 8px; border-radius: 12px; font-size: 0.8em; font-weight: bold; } .role-badge.excellent { background: #d1fae5; color: #065f46; } .role-badge.good { background: #dbeafe; color: #1e40af; } .role-badge.poor { background: #fee2e2; color: #991b1b; }</style>');
+    printWindow.document.write('</head><body>');
+    printWindow.document.write('<h2>TutorPro System Report</h2>');
+    printWindow.document.write(`<p>Generated on: ${new Date().toLocaleString()}</p>`);
+    printWindow.document.write(content);
+    printWindow.document.write('</body></html>');
+    printWindow.document.close();
+    printWindow.print();
+}
+
+// ==================== ADMIN TRANSCRIPT FUNCTIONS ====================
+// Merged into Reports section
+async function viewStudentTranscript(studentId) {
+    const viewDiv = document.getElementById('transcriptView');
+    const reportResults = document.getElementById('reportResults');
+    const reportFilters = document.getElementById('reportFilters');
+    const contentDiv = document.getElementById('transcriptContent');
+    
+    reportResults.classList.add('hidden');
+    reportFilters.classList.add('hidden');
+    viewDiv.classList.remove('hidden');
+    contentDiv.innerHTML = '<p>Loading transcript...</p>';
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/progress/transcript/${studentId}`, {
+            headers: getAuthHeaders()
+        });
+        const data = await response.json();
+        
+        const studentName = data.studentName;
+        const email = data.email;
+        const courses = data.transcript;
+        const gpa = data.gpa;
+        
+        // Calculate overall classification based on GPA
+        let classification = 'Weak';
+        if (gpa >= 9.0) classification = 'Excellent';
+        else if (gpa >= 8.0) classification = 'Very Good';
+        else if (gpa >= 7.0) classification = 'Good';
+        else if (gpa >= 5.0) classification = 'Average';
+        
+        contentDiv.innerHTML = `
+            <div class="transcript-header" style="text-align: center; margin-bottom: 2rem; border-bottom: 2px solid #333; padding-bottom: 1rem;">
+                <h2>OFFICIAL ACADEMIC TRANSCRIPT</h2>
+                <p>TutorPro Learning Management System</p>
+            </div>
+            
+            <div class="student-info" style="margin-bottom: 2rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div>
+                    <p><strong>Student Name:</strong> ${studentName}</p>
+                    <p><strong>Student ID:</strong> ${data.studentId}</p>
+                    <p><strong>Email:</strong> ${email}</p>
+                </div>
+                <div style="text-align: right;">
+                    <p><strong>Date Issued:</strong> ${new Date().toLocaleDateString()}</p>
+                    <p><strong>GPA:</strong> ${gpa}</p>
+                    <p><strong>Classification:</strong> <span class="role-badge ${classification.toLowerCase().replace(' ', '-')}">${classification}</span></p>
+                </div>
+            </div>
+            
+            <table class="users-table" style="width: 100%; border: 1px solid #ddd;">
+                <thead>
+                    <tr style="background: #f0f0f0;">
+                        <th>Course</th>
+                        <th>Midterm (20%)</th>
+                        <th>Assignment (20%)</th>
+                        <th>Lab (20%)</th>
+                        <th>Final (40%)</th>
+                        <th>Total</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${courses.map(c => `
+                        <tr>
+                            <td>${c.courseTitle}</td>
+                            <td>${c.midterm !== undefined ? c.midterm : '-'}</td>
+                            <td>${c.assignment !== undefined ? c.assignment : '-'}</td>
+                            <td>${c.lab !== undefined ? c.lab : '-'}</td>
+                            <td>${c.final !== undefined ? c.final : '-'}</td>
+                            <td><strong>${c.grade !== undefined ? c.grade : '-'}</strong></td>
+                            <td>${c.grade >= 5.0 ? 'PASSED' : 'FAILED'}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+            
+            <div class="transcript-footer" style="margin-top: 3rem; display: flex; justify-content: space-between;">
+                <div>
+                    <p><strong>Grading Scale:</strong></p>
+                    <small>0.0 - 10.0</small>
+                </div>
+                <div style="text-align: center;">
+                    <p><strong>Registrar Signature</strong></p>
+                    <div style="height: 50px;"></div>
+                    <p>_______________________</p>
+                </div>
+            </div>
+        `;
+    } catch (error) {
+        console.error('Failed to load transcript:', error);
+        contentDiv.innerHTML = '<p class="error">Failed to load transcript data.</p>';
+    }
+}
+
+function closeTranscriptView() {
+    document.getElementById('transcriptView').classList.add('hidden');
+    document.getElementById('reportResults').classList.remove('hidden');
+    document.getElementById('reportFilters').classList.remove('hidden');
+}
+
+function printTranscript() {
+    const content = document.getElementById('transcriptContent').innerHTML;
+    const printWindow = window.open('', '', 'height=600,width=800');
+    printWindow.document.write('<html><head><title>Transcript</title>');
+    printWindow.document.write('<link rel="stylesheet" href="styles.css">');
+    printWindow.document.write('<style>body { padding: 2rem; font-family: sans-serif; } .users-table { width: 100%; border-collapse: collapse; } .users-table th, .users-table td { border: 1px solid #ddd; padding: 8px; text-align: left; } .role-badge { padding: 4px 8px; border-radius: 12px; font-size: 0.8em; font-weight: bold; } .role-badge.excellent { background: #d1fae5; color: #065f46; } .role-badge.good { background: #dbeafe; color: #1e40af; } .role-badge.average { background: #fef3c7; color: #92400e; } .role-badge.poor { background: #fee2e2; color: #991b1b; }</style>');
+    printWindow.document.write('</head><body>');
+    printWindow.document.write(content);
+    printWindow.document.write('</body></html>');
+    printWindow.document.close();
+    printWindow.print();
+}
+
+// ==================== ADMIN CHAT FUNCTIONS ====================
+// Admin chat functions have been unified with the generic chat functions.
+// See loadChatRooms, openChatRoom, and sendChatMessage above.
+
+
+// ==================== PROFILE MANAGEMENT ====================
+async function loadProfile() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/profile`, {
+            headers: getAuthHeaders()
+        });
+        const profile = await response.json();
+        
+        // Update Header Info
+        const nameEl = document.getElementById('profileName');
+        const roleEl = document.getElementById('profileRole');
+        const emailEl = document.getElementById('profileEmail');
+        const avatarEl = document.getElementById('profileAvatarInitials');
+        
+        if (nameEl) nameEl.textContent = profile.fullName || profile.username;
+        if (roleEl) roleEl.textContent = profile.role.charAt(0).toUpperCase() + profile.role.slice(1);
+        if (emailEl) emailEl.textContent = profile.email;
+        if (avatarEl) avatarEl.textContent = (profile.fullName || profile.username).charAt(0).toUpperCase();
+        
+        // Update Form Fields
+        const studentIdInput = document.getElementById('profileStudentId');
+        const facultyInput = document.getElementById('profileFaculty');
+        const phoneInput = document.getElementById('profilePhone');
+        const addressInput = document.getElementById('profileAddress');
+        const bioInput = document.getElementById('profileBio');
+        const skillsInput = document.getElementById('profileSkills');
+        
+        if (studentIdInput) studentIdInput.value = profile.studentId || '';
+        if (facultyInput) facultyInput.value = profile.faculty || '';
+        if (phoneInput) phoneInput.value = profile.phone || '';
+        if (addressInput) addressInput.value = profile.address || '';
+        if (bioInput) bioInput.value = profile.bio || '';
+        if (skillsInput) skillsInput.value = (profile.skills || []).join(', ');
+        
+    } catch (error) {
+        console.error('Failed to load profile:', error);
+        // alert('Failed to load profile data');
+    }
+}
+
+async function handleProfileUpdate(e) {
+    e.preventDefault();
+    
+    const phone = document.getElementById('profilePhone').value;
+    const address = document.getElementById('profileAddress').value;
+    const bio = document.getElementById('profileBio').value;
+    
+    const data = { phone, address, bio };
+    
+    // Add skills if it exists (tutor only)
+    const skillsInput = document.getElementById('profileSkills');
+    if (skillsInput) {
+        data.skills = skillsInput.value.split(',').map(s => s.trim()).filter(s => s);
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/profile`, {
+            method: 'PUT',
+            headers: getAuthHeaders(),
+            body: JSON.stringify(data)
+        });
+        
+        if (response.ok) {
+            alert('Profile updated successfully!');
+            loadProfile(); // Reload to refresh header info if needed
+        } else {
+            const errorData = await response.json();
+            alert(errorData.message || 'Failed to update profile');
+        }
+    } catch (error) {
+        console.error('Failed to update profile:', error);
+        alert('Network error');
+    }
+}
+
+async function syncProfileWithDatacore() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/profile/sync`, {
+            method: 'POST',
+            headers: getAuthHeaders()
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            alert(data.message);
+            loadProfile();
+        } else {
+            alert(data.message || 'Sync failed');
+        }
+    } catch (error) {
+        console.error('Failed to sync profile:', error);
+        alert('Network error');
+    }
+}
+
+// ==================== TUTOR SELECTION ====================
+let currentSelectionCourseId = null;
+
+function openTutorSelectionModal(courseId) {
+    currentSelectionCourseId = courseId;
+    const modal = document.getElementById('tutorSelectionModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        loadAvailableTutors(courseId);
+    }
+}
+
+function closeTutorSelectionModal() {
+    const modal = document.getElementById('tutorSelectionModal');
+    if (modal) modal.classList.add('hidden');
+    currentSelectionCourseId = null;
+}
+
+async function loadAvailableTutors(courseId) {
+    const listDiv = document.getElementById('availableTutorsList');
+    listDiv.innerHTML = '<p>Loading tutors...</p>';
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/match/course/${courseId}/tutors`, {
+            headers: getAuthHeaders()
+        });
+        const data = await response.json();
+
+        if (data.tutors && data.tutors.length > 0) {
+            listDiv.innerHTML = data.tutors.map(tutor => `
+                <div class="course-card" style="border: ${tutor.isFull ? '1px solid #ccc' : '1px solid var(--primary-blue)'}">
+                    <div class="course-card-body">
+                        <h3>${tutor.fullName || tutor.username}</h3>
+                        <p style="font-size: 0.9rem; color: #666;">${tutor.faculty || 'General Faculty'}</p>
+                        <div style="margin: 0.5rem 0;">
+                            ${(tutor.skills || []).map(s => `<span class="course-badge">${s}</span>`).join('')}
+                        </div>
+                        <p style="font-size: 0.85rem; margin-bottom: 1rem;">${tutor.bio || 'No bio available.'}</p>
+                        
+                        ${tutor.isFull ? 
+                            `<button class="btn btn-secondary" disabled style="width: 100%;">Full / Busy</button>` : 
+                            `<button class="btn btn-primary" onclick="handleSelectTutor(${tutor.id})" style="width: 100%;">Select Tutor</button>`
+                        }
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            listDiv.innerHTML = '<p>No tutors found for this course subject.</p>';
+        }
+    } catch (error) {
+        console.error('Failed to load tutors:', error);
+        listDiv.innerHTML = '<p>Error loading tutors.</p>';
+    }
+}
+
+async function handleSelectTutor(tutorId) {
+    if (!currentSelectionCourseId) return;
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/match/course/${currentSelectionCourseId}/select`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ tutorId })
+        });
+        
+        const data = await response.json();
+
+        if (response.ok) {
+            alert('Tutor selected successfully!');
+            closeTutorSelectionModal();
+            loadEnrolledCourses(); // Refresh to show tutor info if we update that UI
+        } else {
+            alert(data.error || 'Failed to select tutor');
+        }
+    } catch (error) {
+        console.error('Error selecting tutor:', error);
+        alert('Network error');
+    }
+}
+
+async function handleAutoSelectTutor() {
+    if (!currentSelectionCourseId) return;
+
+    if (!confirm('System will randomly assign a suitable tutor for you. Continue?')) return;
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/match/course/${currentSelectionCourseId}/auto-select`, {
+            method: 'POST',
+            headers: getAuthHeaders()
+        });
+        
+        const data = await response.json();
+
+        if (response.ok) {
+            alert(`Auto-selection successful! You have been matched with ${data.tutor.fullName || data.tutor.username}.`);
+            closeTutorSelectionModal();
+            loadEnrolledCourses();
+        } else {
+            alert(data.error || 'Failed to auto-select tutor');
+        }
+    } catch (error) {
+        console.error('Error auto-selecting tutor:', error);
+        alert('Network error');
+    }
+}
+
+// ==================== RATING SYSTEM ====================
+let currentRatingSessionId = null;
+
+function rateSession(sessionId) {
+    currentRatingSessionId = sessionId;
+    const modal = document.getElementById('ratingModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        document.getElementById('ratingForm').reset();
+    } else {
+        // Fallback for pages without the modal
+        const rating = prompt('Rate this session (0-10):');
+        if (rating) {
+            submitRating(sessionId, parseInt(rating), prompt('Feedback:'));
+        }
+    }
+}
+
+function closeRatingModal() {
+    const modal = document.getElementById('ratingModal');
+    if (modal) modal.classList.add('hidden');
+    currentRatingSessionId = null;
+}
+
+async function handleRatingSubmit(e) {
+    e.preventDefault();
+    if (!currentRatingSessionId) return;
+
+    const communication = parseInt(document.getElementById('rateComm').value);
+    const expertise = parseInt(document.getElementById('rateExpertise').value);
+    const punctuality = parseInt(document.getElementById('ratePunctuality').value);
+    const comment = document.getElementById('rateComment').value;
+
+    const criteria = { communication, expertise, punctuality };
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/ratings`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ 
+                sessionId: currentRatingSessionId, 
+                criteria, 
+                comment 
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            alert('Thank you for your feedback!');
+            closeRatingModal();
+            loadStudentSchedule(); // Refresh to update UI if needed
+        } else {
+            alert(data.error || 'Failed to submit rating');
+        }
+    } catch (error) {
+        console.error('Error submitting rating:', error);
+        alert('Network error');
+    }
+}
+
+// For Tutor Dashboard
+async function loadTutorRatings() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/ratings/my-ratings`, {
+            headers: getAuthHeaders()
+        });
+        const data = await response.json();
+        
+        const ratingsDiv = document.getElementById('tutorRatingsList');
+        if (!ratingsDiv) return;
+
+        if (data.ratings && data.ratings.length > 0) {
+            // Show Averages
+            const averagesHtml = `
+                <div class="stats-grid" style="margin-bottom: 2rem;">
+                    <div class="stat-card"><h3>${data.averages.overall}</h3><p>Overall</p></div>
+                    <div class="stat-card"><h3>${data.averages.communication}</h3><p>Communication</p></div>
+                    <div class="stat-card"><h3>${data.averages.expertise}</h3><p>Expertise</p></div>
+                    <div class="stat-card"><h3>${data.averages.punctuality}</h3><p>Punctuality</p></div>
+                </div>
+            `;
+
+            const listHtml = data.ratings.map(r => `
+                <div class="notification-item">
+                    <div class="notification-header">
+                        <div class="notification-title">${r.sessionTitle}</div>
+                        <div class="notification-time">${new Date(r.createdAt).toLocaleDateString()}</div>
+                    </div>
+                    <div style="margin: 0.5rem 0;">
+                        <span class="course-badge">Overall: ${r.rating}</span>
+                        <span class="course-badge" style="background: #e0f2fe; color: #0369a1;">Comm: ${r.criteria.communication}</span>
+                        <span class="course-badge" style="background: #f0fdf4; color: #15803d;">Exp: ${r.criteria.expertise}</span>
+                    </div>
+                    <p style="font-style: italic; color: #666;">"${r.comment}"</p>
+                    <div style="font-size: 0.8rem; color: #999; margin-top: 0.5rem;">By ${r.studentName}</div>
+                </div>
+            `).join('');
+
+            ratingsDiv.innerHTML = averagesHtml + '<h3>Recent Reviews</h3>' + listHtml;
+        } else {
+            ratingsDiv.innerHTML = '<p>No ratings received yet.</p>';
+        }
+    } catch (error) {
+        console.error('Failed to load ratings:', error);
     }
 }
 

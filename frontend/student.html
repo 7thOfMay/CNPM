@@ -18,6 +18,7 @@
                     <a href="#dashboard" class="active" onclick="showTab('dashboard')">Dashboard</a>
                     <a href="#courses" onclick="showTab('courses')">Courses</a>
                     <a href="#schedule" onclick="showTab('schedule')">Schedule</a>
+                    <a href="#profile" onclick="showTab('profile')">Profile</a>
                     <a href="#chat" id="chatLink" onclick="showTab('chat')">Messages <span id="unreadBadge" class="badge hidden">0</span></a>
                     <a href="#notifications" id="notificationsLink" onclick="showTab('notifications')">Notifications <span id="notificationBadge" class="badge hidden">0</span></a>
                     <button id="logoutBtn" class="btn btn-small">Logout</button>
@@ -71,6 +72,58 @@
                     </div>
                     <div id="calendarView" class="calendar-container hidden"></div>
                     <div id="studentSchedule" class="schedule-list"></div>
+                </div>
+            </div>
+
+            <!-- Profile Tab -->
+            <div id="tab-profile" class="tab-content hidden">
+                <div class="dashboard-section" style="background: transparent; box-shadow: none; padding: 0;">
+                    <div class="profile-container" style="display: grid; grid-template-columns: 300px 1fr; gap: 2rem; align-items: start;">
+                        <!-- Left Column: Identity -->
+                        <div class="profile-sidebar" style="background: white; padding: 2rem; border-radius: 8px; box-shadow: var(--shadow-sm); text-align: center;">
+                            <div class="profile-avatar" style="width: 120px; height: 120px; margin: 0 auto 1.5rem; font-size: 3rem; display: flex; align-items: center; justify-content: center; background: var(--primary-blue); color: white; border-radius: 50%;">
+                                <span id="profileAvatarInitials">--</span>
+                            </div>
+                            <h2 id="profileName" style="font-size: 1.5rem; margin-bottom: 0.5rem;">Loading...</h2>
+                            <p id="profileEmail" style="color: var(--text-secondary); margin-bottom: 1rem;">loading...</p>
+                            <div id="profileRole" class="role-badge" style="margin-bottom: 2rem; display: inline-block;">Student</div>
+                            
+                            <div style="text-align: left; border-top: 1px solid var(--border-light); padding-top: 1.5rem;">
+                                <div class="form-group">
+                                    <label style="font-size: 0.9rem; color: var(--text-secondary);">Student ID</label>
+                                    <input type="text" id="profileStudentId" disabled style="background: transparent; border: none; font-weight: 600; color: var(--text-primary); padding: 0; width: 100%;">
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label style="font-size: 0.9rem; color: var(--text-secondary);">Faculty</label>
+                                    <input type="text" id="profileFaculty" disabled style="background: transparent; border: none; font-weight: 600; color: var(--text-primary); padding: 0; width: 100%;">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right Column: Edit Form -->
+                        <div class="profile-content" style="background: white; padding: 2.5rem; border-radius: 8px; box-shadow: var(--shadow-sm);">
+                            <h3 style="margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-light);">Edit Profile</h3>
+                            <form id="profileForm" onsubmit="handleProfileUpdate(event)">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                                    <div class="form-group">
+                                        <label>Phone Number</label>
+                                        <input type="tel" id="profilePhone" placeholder="Enter phone number">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Address</label>
+                                        <input type="text" id="profileAddress" placeholder="Enter address">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Bio</label>
+                                    <textarea id="profileBio" rows="5" placeholder="Tell us about yourself..."></textarea>
+                                </div>
+                                <div style="text-align: right;">
+                                    <button type="submit" class="btn btn-primary" style="padding: 0.75rem 2rem;">Save Changes</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -159,6 +212,95 @@
         </div>
     </div>
 
+    <!-- Enrollment Confirmation Modal -->
+    <div id="enrollmentModal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeEnrollmentModal()">&times;</span>
+            <h2>Register for Tutor Program</h2>
+            <p style="color: #666; margin-bottom: 1.5rem;">Please confirm your registration details. Data will be synchronized with HCMUT_DATACORE.</p>
+            
+            <div class="dashboard-section" style="background: #F9FAFB; border: 1px solid #E2E8F0;">
+                <div style="display: flex; align-items: center; margin-bottom: 1rem;">
+                    <div style="width: 8px; height: 8px; background: #10B981; border-radius: 50%; margin-right: 8px;"></div>
+                    <span style="font-size: 0.9rem; font-weight: 600; color: #059669;">HCMUT_SSO Verified</span>
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 0.5rem;">
+                    <label style="font-size: 0.85rem;">Student Name</label>
+                    <div id="confirmStudentName" style="font-weight: 600;">Loading...</div>
+                </div>
+                <div class="form-group" style="margin-bottom: 0.5rem;">
+                    <label style="font-size: 0.85rem;">Student ID</label>
+                    <div id="confirmStudentId" style="font-weight: 600;">Loading...</div>
+                </div>
+                <div class="form-group" style="margin-bottom: 0.5rem;">
+                    <label style="font-size: 0.85rem;">Faculty</label>
+                    <div id="confirmFaculty" style="font-weight: 600;">Loading...</div>
+                </div>
+                <div class="form-group">
+                    <label style="font-size: 0.85rem;">Program/Course</label>
+                    <div id="confirmCourseName" style="font-weight: 600; color: var(--primary-blue);">Loading...</div>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem;">
+                <button class="btn btn-secondary" onclick="closeEnrollmentModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="confirmEnrollment()">Confirm Registration</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tutor Selection Modal -->
+    <div id="tutorSelectionModal" class="modal hidden">
+        <div class="modal-content large-modal">
+            <span class="close-modal" onclick="closeTutorSelectionModal()">&times;</span>
+            <h2>Select a Tutor</h2>
+            <p style="color: #666; margin-bottom: 1.5rem;">Choose a tutor for your course or let us match you automatically.</p>
+            
+            <div style="margin-bottom: 1.5rem; text-align: center;">
+                <button class="btn btn-secondary" onclick="handleAutoSelectTutor()" style="width: 100%; padding: 1rem; border: 2px dashed var(--primary-blue); color: var(--primary-blue); font-weight: 600;">
+                    ✨ Auto-Select Tutor (Random Match)
+                </button>
+            </div>
+
+            <div id="availableTutorsList" class="courses-grid" style="grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));">
+                <!-- Tutors will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Rating Modal -->
+    <div id="ratingModal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeRatingModal()">&times;</span>
+            <h2>Rate Session</h2>
+            <p style="color: #666; margin-bottom: 1.5rem;">Please evaluate your tutor based on the following criteria (0-10).</p>
+            
+            <form id="ratingForm" onsubmit="handleRatingSubmit(event)">
+                <div class="form-group">
+                    <label>Communication (0-10)</label>
+                    <input type="number" id="rateComm" min="0" max="10" required>
+                </div>
+                <div class="form-group">
+                    <label>Expertise (0-10)</label>
+                    <input type="number" id="rateExpertise" min="0" max="10" required>
+                </div>
+                <div class="form-group">
+                    <label>Punctuality (0-10)</label>
+                    <input type="number" id="ratePunctuality" min="0" max="10" required>
+                </div>
+                <div class="form-group">
+                    <label>Comments (Optional)</label>
+                    <textarea id="rateComment" rows="3" placeholder="Share your experience..."></textarea>
+                </div>
+                <div style="text-align: right;">
+                    <button type="button" class="btn btn-secondary" onclick="closeRatingModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Submit Feedback</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script src="app.js?v=2"></script>
     <script>
         // Tab switching logic
@@ -176,6 +318,12 @@
                 if (tabName === 'dashboard') {
                     if (typeof loadEnrolledCourses === 'function') {
                         loadEnrolledCourses();
+                    }
+                }
+                
+                if (tabName === 'profile') {
+                    if (typeof loadProfile === 'function') {
+                        loadProfile();
                     }
                 }
             } else {
