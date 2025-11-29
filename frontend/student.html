@@ -348,18 +348,18 @@
             const token = localStorage.getItem('authToken');
             
             if (!userStr || !token) {
-                window.location.href = 'login.html';
+                window.location.href = 'index.html';
                 return;
             }
             
             try {
                 const user = JSON.parse(userStr);
                 if (user.role !== 'student') {
-                    window.location.href = 'login.html';
+                    window.location.href = 'index.html';
                     return;
                 }
             } catch (e) {
-                window.location.href = 'login.html';
+                window.location.href = 'index.html';
                 return;
             }
             

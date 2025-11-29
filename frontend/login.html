@@ -14,172 +14,9 @@
             flex-direction: column;
         }
 
-        /* --- Main Login Card Styles (Image 1 & 3) --- */
-        .main-login-container {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-
-        .login-card {
-            background: white;
-            padding: 40px;
-            border-radius: 4px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            width: 100%;
-            max-width: 400px;
-            text-align: center;
-        }
-
-        .bk-logo-main {
-            width: 100px;
-            height: auto;
-            margin-bottom: 30px;
-        }
-
-        /* CSS Hexagon Logo Fallback - Removed/Kept for reference if needed */
-        .bk-logo-css {
-            width: 60px;
-            height: 34.64px;
-            background-color: #0056b3;
-            margin: 17.32px auto;
-            position: relative;
-            display: inline-block;
-            margin-bottom: 40px;
-        }
-        .bk-logo-css:before,
-        .bk-logo-css:after {
-            content: "";
-            position: absolute;
-            width: 0;
-            border-left: 30px solid transparent;
-            border-right: 30px solid transparent;
-        }
-        .bk-logo-css:before {
-            bottom: 100%;
-            border-bottom: 17.32px solid #0056b3;
-        }
-        .bk-logo-css:after {
-            top: 100%;
-            width: 0;
-            border-top: 17.32px solid #0056b3;
-        }
-        .bk-logo-text {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: white;
-            font-weight: bold;
-            font-size: 12px;
-            z-index: 1;
-            text-align: center;
-            line-height: 1;
-        }
-
-        .login-header-text {
-            color: #0056b3;
-            font-size: 1.2rem;
-            margin-bottom: 20px;
-            text-align: left;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 10px;
-        }
-
-        .login-option-btn {
-            display: block;
-            width: 100%;
-            padding: 12px;
-            margin-bottom: 10px;
-            background: white;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            color: #333;
-            font-size: 0.95rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            text-align: center;
-            text-decoration: none;
-        }
-
-        .login-option-btn:hover {
-            background-color: #f8f9fa;
-            border-color: #ccc;
-        }
-        
-        .login-option-btn.hcmut-btn {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-        }
-
-        .login-option-btn img {
-            height: 20px;
-        }
-
-        /* Admin Form Styles */
-        .admin-form-container {
-            margin-top: 20px;
-            text-align: left;
-        }
-
-        .form-input {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 15px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-size: 1rem;
-        }
-
-        .login-submit-btn {
-            background-color: #0073aa;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 4px;
-            font-weight: bold;
-            cursor: pointer;
-            font-size: 1rem;
-        }
-
-        .login-submit-btn:hover {
-            background-color: #005d8a;
-        }
-
-        .lost-password {
-            display: block;
-            margin-top: 15px;
-            color: #0073aa;
-            text-decoration: none;
-            font-size: 0.9rem;
-        }
-
-        .card-footer {
-            margin-top: 30px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.85rem;
-            border-top: 1px solid #eee;
-            padding-top: 15px;
-        }
-
-        .cookies-btn {
-            background: #0044cc;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 3px;
-            cursor: pointer;
-        }
-
         /* --- CAS Page Styles (Image 2) --- */
         .cas-container {
-            display: none; /* Hidden by default */
+            display: flex; /* Changed from none to flex */
             flex-direction: column;
             min-height: 100vh;
             background: white;
@@ -316,43 +153,6 @@
 </head>
 <body>
 
-    <!-- View 1: Main Login Card (Image 1 & 3) -->
-    <div id="mainLoginView" class="main-login-container">
-        <div class="login-card">
-            <!-- Logo -->
-            <img src="https://upload.wikimedia.org/wikipedia/commons/d/de/HCMUT_official_logo.png" alt="HCMUT Logo" class="bk-logo-main">
-
-            <h2 class="login-header-text">Log in using your account on:</h2>
-
-            <!-- Buttons -->
-            <button class="login-option-btn hcmut-btn" onclick="showCasLogin()">
-                <span style="color: #0056b3; font-weight: bold;">❖</span> Tài khoản HCMUT (HCMUT account)
-            </button>
-            
-            <button class="login-option-btn" onclick="toggleAdminForm()">
-                Admin
-            </button>
-
-            <!-- Admin Form (Hidden by default) -->
-            <div id="adminForm" class="admin-form-container hidden">
-                <form id="adminLoginForm">
-                    <input type="text" id="adminUsername" class="form-input" placeholder="Username" value="admin">
-                    <input type="password" id="adminPassword" class="form-input" placeholder="Password">
-                    <button type="submit" class="login-submit-btn">Log in</button>
-                </form>
-                <a href="#" class="lost-password">Lost password?</a>
-            </div>
-
-            <!-- Footer -->
-            <div class="card-footer">
-                <div class="lang-select">
-                    <span style="color: #0056b3;">🌐 English (en) ▾</span>
-                </div>
-                <button class="cookies-btn">Cookies notice</button>
-            </div>
-        </div>
-    </div>
-
     <!-- View 2: CAS Login Page (Image 2) -->
     <div id="casLoginView" class="cas-container">
         <header class="cas-header">
@@ -416,68 +216,16 @@
         const roleParam = urlParams.get('role');
         
         if (roleParam) {
-            // If role is specified, go straight to CAS (or Admin form if we wanted, but Use Case says SSO)
-            // For this demo, we'll show CAS for everyone as per diagram, 
-            // but if it's admin, we might want to pre-fill or something.
-            // Actually, let's just show CAS immediately if a role is picked.
-            showCasLogin();
-            
+            // Update UI to show specific login context
+            const roleTitle = roleParam.charAt(0).toUpperCase() + roleParam.slice(1);
+            document.querySelector('.cas-login-header').textContent = `Enter your ${roleTitle} Username and Password`;
+            document.title = `${roleTitle} Login - HCMUT SSO`;
+
             // Pre-fill username based on role for convenience in demo
             if (roleParam === 'student') document.getElementById('casUsername').value = 'student';
             if (roleParam === 'tutor') document.getElementById('casUsername').value = 'tutor';
             if (roleParam === 'admin') document.getElementById('casUsername').value = 'admin';
         }
-
-        // Toggle between Main View and CAS View
-        function showCasLogin() {
-            document.getElementById('mainLoginView').style.display = 'none';
-            document.getElementById('casLoginView').style.display = 'flex';
-            document.title = 'Central Authentication Service';
-        }
-
-        // Toggle Admin Form visibility
-        function toggleAdminForm() {
-            const form = document.getElementById('adminForm');
-            form.classList.toggle('hidden');
-        }
-
-        // Handle Admin Login (Local)
-        document.getElementById('adminLoginForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const username = document.getElementById('adminUsername').value;
-            const password = document.getElementById('adminPassword').value; // In real app, send this
-            
-            // Use the backend's local login endpoint which now has lockout logic
-            try {
-                // Construct email from username for the backend check
-                let email = username;
-                if (!email.includes('@')) {
-                    email = username + '@hcmut.edu.vn'; // Default domain for admin demo
-                }
-
-                const response = await fetch('http://localhost:3000/api/auth/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password: 'admin' }) // Sending dummy password as hash check is on backend, but for demo we need to match what's in dataStore or just rely on the mock logic I added? 
-                    // Wait, I added lockout to the REAL login endpoint. I should use it properly.
-                    // But the frontend was mocking it before.
-                    // Let's try to use the real endpoint.
-                });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    localStorage.setItem('currentUser', JSON.stringify(data.user));
-                    localStorage.setItem('authToken', data.token);
-                    window.location.href = 'admin.html';
-                } else {
-                    alert(data.error || 'Invalid credentials');
-                }
-            } catch (error) {
-                console.error('Login error:', error);
-                alert('Network error');
-            }
-        });
 
         // Handle CAS Login (Student/Tutor/Admin via SSO)
         let failedAttempts = 0;
@@ -530,13 +278,28 @@
                 const data = await response.json();
 
                 if (response.ok) {
+                    console.log('Login successful. User role:', data.user.role);
+                    console.log('Required role:', roleParam);
+
+                    // Enforce Role Restriction
+                    const currentRole = data.user.role.toLowerCase();
+                    const requiredRole = roleParam ? roleParam.toLowerCase() : null;
+
+                    if (requiredRole && currentRole !== requiredRole) {
+                        alert(`Login Failed: You are trying to log in as a ${requiredRole.toUpperCase()}, but this account belongs to a ${currentRole.toUpperCase()}. Please use the correct account.`);
+                        // Clear any set data
+                        localStorage.removeItem('currentUser');
+                        localStorage.removeItem('authToken');
+                        return;
+                    }
+
                     localStorage.setItem('currentUser', JSON.stringify(data.user));
                     localStorage.setItem('authToken', data.token);
                     
                     // Redirect based on role
-                    if (data.user.role === 'student') window.location.href = 'student.html';
-                    else if (data.user.role === 'tutor') window.location.href = 'tutor.html';
-                    else if (data.user.role === 'admin') window.location.href = 'admin.html';
+                    if (currentRole === 'student') window.location.href = 'student.html';
+                    else if (currentRole === 'tutor') window.location.href = 'tutor.html';
+                    else if (currentRole === 'admin') window.location.href = 'admin.html';
                     else window.location.href = 'index.html';
                 } else {
                     alert('Login failed: ' + (data.error || 'Unknown error'));

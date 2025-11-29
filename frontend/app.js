@@ -292,13 +292,13 @@ async function handleLogin(e) {
 // User Logout
 function handleLogout() {
     clearUserFromStorage();
-    window.location.href = 'login.html';
+    window.location.href = 'index.html';
 }
 
 // Redirect to role-specific dashboard
 function redirectToRoleDashboard() {
     if (!currentUser) {
-        window.location.href = 'login.html';
+        window.location.href = 'index.html';
         return;
     }
     

@@ -1,84 +1,99 @@
 # TutorPro Project Summary
 
 ## 1. Project Overview
-TutorPro is an online tutoring platform designed to connect students with tutors, facilitate course enrollment, session scheduling, and provide AI-assisted learning support. The project is currently in a prototype/MVP stage with a focus on core functionality, authentication, and role-based access control.
+TutorPro is an online tutoring platform designed for the HCMUT environment, connecting students with tutors through a role-based system. The project focuses on a seamless user experience with simulated Single Sign-On (SSO) and strict role enforcement.
 
-**Current Version:** 2.0.0 (Phase 1 Complete)
+**Current Version:** 2.1.0 (Frontend Refinement & SSO Integration)
 **Last Updated:** November 29, 2025
 
 ---
 
-## 2. Features & Implementation Status
+## 2. Key Features & Implementation Status
 
-### Core Features (Implemented)
-*   **User Management**: Registration, Login (JWT-based), Role-based access (Student, Tutor, Admin).
-*   **Course Management**: Course catalog, filtering by subject/level, enrollment system.
-*   **Session Management**:
-    *   Tutors can create/edit/delete sessions.
-    *   Students can book/cancel sessions for enrolled courses.
-    *   Capacity management (max students).
-*   **Resource Management**: Tutors can upload files (PDF, Video, etc.) for their courses.
-*   **Communication**: Real-time chat between students and tutors (restricted to enrolled courses).
-*   **AI Integration**:
-    *   AI Tutor Chatbot for Q&A.
-    *   Learning recommendations based on user interests.
-*   **Rating & Feedback**: Students can rate sessions and provide feedback.
-*   **Notifications**: System notifications for bookings, cancellations, and updates.
-*   **Admin Dashboard**: User management, system statistics, and basic reporting.
+### Authentication & Security
+*   **Simulated HCMUT SSO (CAS)**: Login flow mimics the Central Authentication Service.
+*   **Role-Based Access Control (RBAC)**:
+    *   **Strict Role Enforcement**: Users must log in via the correct role portal (Student, Tutor, or Admin). Mismatches (e.g., Student trying to log in as Tutor) are blocked.
+    *   **Secure Session Management**: JWT-based authentication with local storage.
+    *   **Logout Redirection**: Logging out securely redirects users to the main landing page (`index.html`), preventing unauthorized access loops.
 
-### Missing / Future Features
-*   **External Integrations**: HCMUT_SSO, HCMUT_Datacore, HCMUT_Library.
-*   **Data Persistence**: Currently using in-memory storage (resets on restart).
-*   **Advanced Analytics**: Detailed reporting and export capabilities.
-*   **Video Conferencing**: Integration with Zoom/Jitsi.
+### User Roles
+*   **Student**: Browse courses, enroll, book sessions, rate tutors, and access resources.
+*   **Tutor**: Create courses, manage sessions, upload resources, and track student progress.
+*   **Admin**: System oversight, user management, and platform statistics.
+
+### Core Functionality
+*   **Course Management**: Catalog view, filtering, and enrollment.
+*   **Session Scheduling**: Booking system with capacity management.
+*   **Resource Sharing**: File sharing capabilities for courses.
+*   **Communication**: Integrated chat system for enrolled courses.
 
 ---
 
 ## 3. Technical Architecture
 
-### Backend (Node.js/Express)
-*   **API**: RESTful API structure.
-*   **Auth**: JWT (JSON Web Tokens) for stateless authentication.
-*   **Security**: Bcrypt password hashing, protected routes middleware.
-*   **Storage**: In-memory data store (`dataStore.js`) with file upload support (`multer`).
-*   **Documentation**: See Section 5 for API details.
+### Frontend (`/frontend`)
+*   **Technology**: Vanilla JavaScript, HTML5, CSS3.
+*   **Architecture**: Single Page Application (SPA) feel with hash-based routing.
+*   **Entry Point**: `index.html` (Role Selection) -> `login.html` (CAS Auth) -> Role Dashboard.
+*   **State Management**: `localStorage` for user sessions and tokens.
 
-### Frontend (Vanilla JS)
-*   **UI**: Responsive, card-based design with "Moodle-inspired" color scheme.
-*   **Logic**: `app.js` handles API calls, state management, and DOM manipulation.
-*   **Routing**: Hash-based navigation (SPA-like feel).
-
-### AI Service (Python/Flask)
-*   **Functionality**: Handles AI queries and recommendation logic.
-*   **Endpoints**: `/api/ai/query`, `/api/ai/recommend`.
+### Backend (`/backend`)
+*   **Technology**: Node.js, Express.js.
+*   **Database**: In-memory data store (`dataStore.js`) for rapid prototyping.
+*   **API**: RESTful endpoints for Auth, Courses, Sessions, and Users.
+*   **Testing**: Jest framework for unit and integration testing.
 
 ---
 
-## 4. Setup & Installation
+## 4. Project Structure
+
+```
+tutor-demo-full/
+├── backend/                # Node.js API Server
+│   ├── src/                # Source code
+│   │   ├── controllers/    # Request handlers
+│   │   ├── models/         # Data models (in-memory)
+│   │   ├── routes/         # API route definitions
+│   │   └── utils/          # Helper functions
+│   ├── tests/              # Unit tests (Jest)
+│   └── package.json        # Dependencies
+├── frontend/               # Web Application
+│   ├── assets/             # Images and static files
+│   ├── index.html          # Landing Page (Role Selection)
+│   ├── login.html          # CAS Login Page
+│   ├── student.html        # Student Dashboard
+│   ├── tutor.html          # Tutor Dashboard
+│   ├── admin.html          # Admin Dashboard
+│   ├── app.js              # Main application logic
+│   └── styles.css          # Global styles
+├── docs/                   # Documentation
+│   └── PROJECT_SUMMARY.md  # This file
+├── start.bat               # Windows Startup Script
+└── start.ps1               # PowerShell Startup Script
+```
+
+---
+
+## 5. Setup & Execution
 
 ### Prerequisites
-*   Node.js (v18+)
-*   Python (v3.11+)
-*   Git
+*   Node.js (v18 or higher)
+*   Python (for simple HTTP server)
 
-### Quick Start (Windows)
-1.  Run `start.bat` in the root directory.
-2.  Access Frontend: `http://localhost:8080`
-3.  Access Backend: `http://localhost:3000`
+### Quick Start
+1.  Run `start.bat` (Command Prompt) or `start.ps1` (PowerShell) in the root directory.
+2.  The system will launch:
+    *   **Backend API**: `http://localhost:3000`
+    *   **Frontend**: `http://localhost:8080`
+3.  A browser window will open automatically to the landing page.
 
-### Manual Setup
+### Manual Startup
 **Backend:**
 ```bash
 cd backend
 npm install
 npm start
-```
-
-**AI Service:**
-```bash
-cd ai-service
-pip install -r requirements.txt
-python app.py
 ```
 
 **Frontend:**
@@ -89,69 +104,10 @@ python -m http.server 8080
 
 ---
 
-## 5. API Documentation Summary
-
-### Base URL: `http://localhost:3000/api`
-
-#### Authentication
-*   `POST /auth/register`: Register new user.
-*   `POST /auth/login`: Login and receive JWT.
-*   `GET /auth/me`: Get current user info.
-
-#### Users
-*   `GET /users`: List all users (Admin).
-*   `DELETE /admin/users/:id`: Delete user (Admin).
-
-#### Courses
-*   `GET /courses`: List all courses.
-*   `POST /courses/:id/enroll`: Enroll in a course.
-*   `GET /courses/my-courses`: Get enrolled courses.
-*   `POST /tutor/courses`: Create a course (Tutor).
-
-#### Sessions
-*   `GET /sessions`: Get available sessions.
-*   `POST /sessions`: Create session (Tutor).
-*   `POST /sessions/:id/book`: Book a session.
-
-#### Resources
-*   `GET /resources`: Get course resources.
-*   `POST /resources`: Upload a file/resource (Tutor).
-
-#### AI & Chat
-*   `POST /tutoring/ask`: Ask AI a question.
-*   `GET /chat/rooms`: Get chat conversations.
-*   `POST /chat/message`: Send a message.
-
----
-
-## 6. Stakeholder Analysis Summary
-
-| Stakeholder | Met Needs | Missing Needs |
-| :--- | :--- | :--- |
-| **Student** | Login, Enroll, Chat, Book Sessions, Rate, View Resources | SSO, Calendar Sync, External Library Access |
-| **Tutor** | Create Courses, Manage Sessions, Upload Resources, View Progress | Advanced Student Analytics, Community Forum |
-| **Admin** | User Management, System Stats, Role Control | Detailed Reports, Export Data, System Logs |
-
-**Overall Coverage:** ~70% of initial requirements met.
-
----
-
-## 7. Testing
-
-### Backend Tests
-```bash
-cd backend
-npm test
-```
-*   Covers: Auth, Courses, API endpoints.
-
-### AI Service Tests
-```bash
-cd ai-service
-pytest
-```
-*   Covers: Health check, Query processing.
-
----
-
-*For detailed original documentation, please refer to the project history or previous commits.*
+## 6. Recent Updates (v2.1.0)
+*   **Removed**: AI Service (Python) has been deprecated and removed from the workspace.
+*   **Cleanup**: Removed temporary test scripts (`check_data.js`, `test-admin-login.js`) to streamline the codebase.
+*   **UI/UX**:
+    *   Redesigned `index.html` for clear role selection.
+    *   Updated `login.html` to match HCMUT CAS styling.
+    *   Fixed logout navigation flow.

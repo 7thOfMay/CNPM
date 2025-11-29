@@ -1512,3 +1512,45 @@ footer {
     background: #D1FAE5;
     color: #065F46;
 }
+
+/* Login Cards */
+.login-grid {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    margin-top: 2rem;
+    flex-wrap: wrap;
+}
+
+.login-card {
+    background-color: #FCD34D; /* Yellow */
+    border-radius: 12px;
+    padding: 2rem;
+    width: 220px;
+    height: 180px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    color: #000;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.login-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 15px rgba(0,0,0,0.1);
+}
+
+.login-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    color: #000;
+}
+
+.login-text {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #000;
+}
